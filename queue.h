@@ -22,7 +22,6 @@
 #include <unistd.h>
 #include <time.h>
 #include "agent.h"
-#include "call.h"
 #include "abnhelper.h"
 #include "exceptions.h"
 #include "DBConnection.h"
@@ -63,8 +62,7 @@ public:
 	int WordCount() const { return itsWords.size() - 1; }
 	const std::string &GetType() const { return itsWords.at(0); }
 	const std::string &GetWord(int whichWord) const { return itsWords.at(whichWord + 1); }
-	// took out const and and string
-	// std::string & GetAttribute(std::string & attribute) {
+
 	std::string GetAttribute(const std::string &attribute)
 	{
 
@@ -266,6 +264,11 @@ public:
 	Queue() { changed = false; }
 	~Queue() {}
 
+	void DisplayInfo() const
+	{
+		// Implement display logic here
+		std::cout << this->itsName << std::endl;
+	}
 	// bool ParseQueue(std::string name, AgentList TheAgents) {
 	bool ParseQueue(const std::string &name, u_long serverId)
 	{
@@ -558,10 +561,11 @@ public:
 	void dumpAllAgents()
 	{
 
-		 std::cout << "[DEBUG}[dumpAllAgents] Member List: " << std::endl;
-			for (int i = 0; i < itsMembersNumbers.size(); i++) {
-				std::cout << itsMembersNumbers.at(i) << std::endl;
-			}
+		std::cout << "[DEBUG}[dumpAllAgents] Member List: " << std::endl;
+		for (int i = 0; i < itsMembersNumbers.size(); i++)
+		{
+			std::cout << itsMembersNumbers.at(i) << std::endl;
+		}
 
 		std::cout << "Number of Agents: " << std::endl;
 		std::cout << itsMembersNumbers.size() << std::endl;
@@ -609,20 +613,19 @@ public:
 
 	int size() const { return itsMembersNumbers.size(); }
 
-	
-	std::string join(const std::vector<std::string>& elements, const std::string& delimiter)
-{
-    std::string result;
-    for (size_t i = 0; i < elements.size(); ++i)
-    {
-        result += elements[i];
-        if (i != elements.size() - 1)  // Don't add the delimiter after the last element
-        {
-            result += delimiter;
-        }
-    }
-    return result;
-}
+	std::string join(const std::vector<std::string> &elements, const std::string &delimiter)
+	{
+		std::string result;
+		for (size_t i = 0; i < elements.size(); ++i)
+		{
+			result += elements[i];
+			if (i != elements.size() - 1) // Don't add the delimiter after the last element
+			{
+				result += delimiter;
+			}
+		}
+		return result;
+	}
 
 	void Write()
 	{
@@ -650,8 +653,8 @@ public:
 			{
 				std::shared_ptr<sql::PreparedStatement> pstmt(
 					dbConn.prepareStatement("INSERT INTO settings (queue_id, parameter, value) "
-										   "VALUES (?, ?, ?) "
-										   "ON DUPLICATE KEY UPDATE value = VALUES(value)"));
+											"VALUES (?, ?, ?) "
+											"ON DUPLICATE KEY UPDATE value = VALUES(value)"));
 				pstmt->setUInt64(1, queueId);
 				pstmt->setString(2, settingType);
 				pstmt->setString(3, settingValue);
@@ -666,7 +669,21 @@ public:
 		}
 	}
 
-	int GetAvailAgents(const AgentList &TheAgents) const
+	int GetAvailAgents() const
+	{
+
+		u_long serverId = std::stoul(getServerId());
+
+		int availAgents = 0;
+
+		DBConnection dbConn;
+
+		availAgents = dbConn->getAvailableAgentBridges(itsName, serverId);
+
+		return availAgents;
+	}
+
+	int GetAvailAgents_OBSOLETE(const AgentList &TheAgents) const
 	{
 
 		timeval tv;
@@ -721,7 +738,7 @@ private:
 	std::vector<std::string> itsMembersNames, otherSettings;
 	std::vector<Setting> itsSettings;
 	bool changed;
-	CallCache itsCalls;
+	// CallCache itsCalls;
 	AbnHelper itsAbnHelper;
 	u_long serverId;
 };
@@ -807,7 +824,7 @@ public:
 		// this is all fluff, just display only, sets nothing
 		for (int i = 0; i < TheAgents.size(); i++)
 		{
-			std::cout << "[DEBUG] LeastRecent [" << name << "]: ALL AGENTS: " << TheAgents.at(i).GetNumber() << " STATUS: "<<  TheAgents.at(i).GetStatus() << std::endl;
+			std::cout << "[DEBUG] LeastRecent [" << name << "]: ALL AGENTS: " << TheAgents.at(i).GetNumber() << " STATUS: " << TheAgents.at(i).GetStatus() << std::endl;
 			if (tempQueue.HasMemberNumber(TheAgents.at(i).GetNumber()) && TheAgents.at(i).GetStatus() != -2)
 			{
 				tempAgentStatus = TheAgents.at(i).GetStatus();
@@ -867,6 +884,12 @@ public:
 		}
 		return false;
 	}
+
+	std::vector<Queue>::iterator begin() { return ItsQueues.begin(); }
+	std::vector<Queue>::iterator end() { return ItsQueues.end(); }
+
+	std::vector<Queue>::const_iterator begin() const { return ItsQueues.begin(); }
+	std::vector<Queue>::const_iterator end() const { return ItsQueues.end(); }
 
 private:
 	std::vector<Queue> ItsQueues;

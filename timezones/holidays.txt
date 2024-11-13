@@ -1,0 +1,30 @@
+# You can't make outbound sales calls
+# to some states on Federal Holidays.
+#
+# This file tells gnudialer if today
+# is a Federal Holiday.
+#
+# The numbers listed in the "static"
+# category are interpreted as month.day
+#
+# The numbers listed in the "dynamic"
+# category are interpreted as
+# nth.dayofweek.ofmonth
+#
+# We also have a special condition where
+# "n" means "Last," as in "Last Monday
+# in May."  In this case we use "L."
+
+[static]
+add->1.1 # New Year's Day
+add->7.4 # Independence Day
+add->11.11 # Veterans Day
+add->12.25 # Christmas Day
+
+[dynamic]
+add->3.1.1 # Martin Luther King's Birthday - Third Monday in January
+add->3.1.2 # Washington's Birthday - Third Monday in February
+add->L.1.5 # Memorial Day - Last Monday in May
+add->1.1.9 # Labor Day - First Monday in September
+add->2.1.10 # Columbus Day - Second Monday in October
+add->4.4.11 # Thanksgiving - Fourth Thursday in November

@@ -71,7 +71,7 @@ std::vector<std::string> DBConnection::getCampaigns(u_long serverId)
                 "WHERE campaigns.status = 1 "
                 "AND queues.server_id = ? "
                 "AND (queues.dial_method = 6 OR queues.dial_method = 3)"));
-        pstmt->setUInt64(1, serverId); 
+        pstmt->setUInt64(1, serverId);
         std::shared_ptr<sql::ResultSet> res(pstmt->executeQuery());
 
         while (res->next())
@@ -262,8 +262,7 @@ std::vector<ParsedConfBridge> DBConnection::getAllConfBridges(u_long serverId)
     {
         std::unique_ptr<sql::PreparedStatement> pstmt(
             conn->prepareStatement(
-                "SELECT id, agent_id, online, available, pause FROM conf_bridges WHERE server_id = ?"
-            ));
+                "SELECT id, bridge_id, agent_id, online, available, pause, updated_at FROM conf_bridges WHERE server_id = ?"));
 
         pstmt->setUInt64(1, serverId); // Setting the first parameter as serverId
 
@@ -292,13 +291,65 @@ std::vector<ParsedConfBridge> DBConnection::getAllConfBridges(u_long serverId)
     return confBridges;
 }
 
-u_long DBConnection::getConfBridgeIdForAgent(u_long agentId, u_long serverId){
+std::vector<ParsedConfBridge> DBConnection::getQueueConfBridges(u_long serverId, std::string &queueName)
+{
+    std::vector<ParsedConfBridge> confBridges;
+
+    try
+    {
+        std::unique_ptr<sql::PreparedStatement> pstmt(
+            conn->prepareStatement(
+                "SELECT "
+                "conf_bridges.id, "
+                "conf_bridges.bridge_id, "
+                "conf_bridges.agent_id, "
+                "conf_bridges.online, "
+                "conf_bridges.available, "
+                "conf_bridges.pause, "
+                "conf_bridges.agent_channel_id, "
+                "conf_bridges.agent_channel, "
+                "conf_bridges.updated_at "
+                "FROM conf_bridges "
+                "LEFT JOIN agents ON conf_bridges.agent_id=agents.id "
+                "LEFT JOIN agent_queue ON agent_queue.agent_id=agents.id "
+                "LEFT JOIN queues ON queues.queue_id=queues.id "
+                "LEFT JOIN campaigns ON queues.campaign_id=campaigns.id AND queues.server_id = ?"
+                "WHERE campaigns.code = ?"));
+
+        pstmt->setUInt64(1, serverId); // Setting the first parameter as serverId
+        pstmt->setString(2, queueName);
+        // Execute the query
+        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+
+        // Fetch the results row by row
+        while (res->next())
+        {
+            ParsedConfBridge bridge;
+            bridge.id = res->getUInt64("id");             // Bridge ID
+            bridge.agent_id = res->getUInt64("agent_id"); // Agent ID
+            bridge.online = res->getInt("online");        // Online status
+            bridge.available = res->getInt("available");  // Available status
+            bridge.pause = res->getInt("pause");          // Pause status
+
+            // Add the bridge to the vector
+            confBridges.push_back(bridge);
+        }
+    }
+    catch (sql::SQLException &e)
+    {
+        std::cerr << "MySQL error: " << e.what() << " (MySQL error code: " << e.getErrorCode() << ")" << std::endl;
+    }
+
+    return confBridges;
+}
+
+u_long DBConnection::getConfBridgeIdForAgent(u_long agentId, u_long serverId)
+{
     try
     {
         std::shared_ptr<sql::PreparedStatement> pstmt(
             conn->prepareStatement(
-                "SELECT id FROM conf_bridges WHERE agent_id = ? AND server_id = ?"
-            ));
+                "SELECT id FROM conf_bridges WHERE agent_id = ? AND server_id = ?"));
         pstmt->setUInt64(1, agentId);
         pstmt->setUInt64(2, serverId); // Setting the first parameter as serverId
 
@@ -316,4 +367,260 @@ u_long DBConnection::getConfBridgeIdForAgent(u_long agentId, u_long serverId){
         std::cerr << "SQLState: " << e.getSQLState() << std::endl;
     }
     return 0; // return 0 if not found
+}
+
+ParsedQueueOperations DBConnection::fetchAbnStats(const std::string &queueName, u_long serverId, int resetHours = 3)
+{
+    ParsedQueueOperations result = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    try
+    {
+        std::shared_ptr<sql::PreparedStatement> pstmt(
+            conn->prepareStatement(
+                "SELECT "
+                "queue_operations.id, "
+                "queue_operations.calls, "
+                "queue_operations.totalcalls, "
+                "queue_operations.abandons, "
+                "queue_operations.totalabandons, "
+                "queue_operations.disconnects, "
+                "queue_operations.noanswers, "
+                "queue_operations.busies, "
+                "queue_operations.congestions, "
+                "queue_operations.ansmachs, "
+                "queue_operations.lines_dialing, "
+                "queue_operations.queue_id, "
+                "queue_operations.updated_at "
+                "FROM queue_operations "
+                "LEFT JOIN queues ON queue_operations.queue_id=queues.id "
+                "LEFT JOIN campaigns ON queues.campaign_id = campaigns.id "
+                "WHERE campaigns.code = ? AND queues.server_id = ?"));
+        pstmt->setString(1, queueName);
+        pstmt->setUInt64(2, serverId);
+        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+
+        if (res->next())
+        {
+            result.id = res->getUInt64("id");
+            result.calls = res->getInt("calls");
+            result.totalcalls = res->getInt("totalcalls");
+            result.abandons = res->getInt("abandons");
+            result.totalabandons = res->getInt("totalabandons");
+            result.disconnects = res->getInt("disconnects");
+            result.noanswers = res->getInt("noanswers");
+            result.busies = res->getInt("busies");
+            result.congestions = res->getInt("congestions");
+            result.ansmachs = res->getInt("ansmachs");
+            result.lines_dialing = res->getInt("lines_dialing");
+            result.queue_id = res->getUInt64("queue_id");
+
+            // Check if `updated_at` is too old
+            std::string updatedAtStr = res->getString("updated_at");
+            struct tm updatedAt = {};
+            strptime(updatedAtStr.c_str(), "%Y-%m-%d %H:%M:%S", &updatedAt);
+            time_t updatedAtTime = mktime(&updatedAt);
+
+            time_t now = time(nullptr);
+            double hoursDiff = std::difftime(now, updatedAtTime) / 3600;
+
+            if (hoursDiff >= resetHours)
+            {
+                // Reset values and update database
+                result.calls = 0;
+                result.abandons = 0;
+                result.disconnects = 0;
+                result.noanswers = 0;
+                result.busies = 0;
+                result.congestions = 0;
+                result.ansmachs = 0;
+                result.lines_dialing = 0;
+
+                std::shared_ptr<sql::PreparedStatement> resetStmt(
+                    conn->prepareStatement(
+                        "UPDATE queue_operations SET calls = 0, totalcalls = ?, abandons = 0, "
+                        "totalabandons = ?, disconnects = 0, noanswers = 0, busies = 0, "
+                        "congestions = 0, ansmachs = 0, lines_dialing = 0, updated_at = NOW() "
+                        "WHERE id = ?"));
+                resetStmt->setInt(1, result.totalcalls);
+                resetStmt->setInt(2, result.totalabandons);
+                resetStmt->setUInt64(3, result.id);
+                resetStmt->executeUpdate();
+            }
+        }
+        else
+        {
+            // If no record exists, insert a new entry
+            std::shared_ptr<sql::PreparedStatement> insertStmt(
+                conn->prepareStatement(
+                    "INSERT INTO queue_operations (calls, totalcalls, abandons, totalabandons, "
+                    "disconnects, noanswers, busies, congestions, ansmachs, lines_dialing, "
+                    "queue_id, updated_at, created_at) "
+                    "VALUES (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "
+                    "(SELECT id FROM queues WHERE server_id = ? AND campaign_id = "
+                    "(SELECT id FROM campaigns WHERE code = ?)), NOW(), NOW())"));
+            insertStmt->setUInt64(1, serverId);
+            insertStmt->setString(2, queueName);
+            insertStmt->executeUpdate();
+
+            // You may want to retrieve the inserted row for `result` if needed
+        }
+    }
+    catch (sql::SQLException &e)
+    {
+        std::cerr << "SQLException: " << e.what() << std::endl;
+        std::cerr << "MySQL error code: " << e.getErrorCode() << std::endl;
+        std::cerr << "SQLState: " << e.getSQLState() << std::endl;
+    }
+}
+
+bool DBConnection::updateAbnStats(const std::string &queueName, u_long serverId, const ParsedQueueOperations &queueOperations)
+{
+    try
+    {
+
+        // Prepare the SQL update statement
+        std::shared_ptr<sql::PreparedStatement> pstmt(
+            conn->prepareStatement(
+                "UPDATE queue_operations "
+                "JOIN queues ON queue_operations.queue_id = queues.id "
+                "JOIN campaigns ON queues.campaign_id = campaigns.id "
+                "SET calls = ?, totalcalls = ?, abandons = ?, totalabandons = ?, "
+                "disconnects = ?, noanswers = ?, busies = ?, congestions = ?, "
+                "ansmachs = ?, updated_at = NOW() "
+                "WHERE campaigns.code = ? AND queues.server_id = ?"));
+
+        pstmt->setInt(1, queueOperations.calls);
+        pstmt->setInt(2, queueOperations.totalcalls);
+        pstmt->setInt(3, queueOperations.abandons);
+        pstmt->setInt(4, queueOperations.totalabandons);
+        pstmt->setInt(5, queueOperations.disconnects);
+        pstmt->setInt(6, queueOperations.noanswers);
+        pstmt->setInt(7, queueOperations.busies);
+        pstmt->setInt(8, queueOperations.congestions);
+        pstmt->setInt(9, queueOperations.ansmachs);
+        pstmt->setString(10, queueName);
+        pstmt->setUInt64(11, serverId);
+
+        pstmt->executeUpdate();
+        return true;
+    }
+    catch (sql::SQLException &e)
+    {
+        std::cerr << "SQL error: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+int DBConnection::getAvailableAgentBridges(const std::string &queueName, u_long serverId)
+{
+    try
+    {
+        std::shared_ptr<sql::PreparedStatement> pstmt(
+            conn->prepareStatement(
+                "SELECT count(*) FROM conf_bridges "
+                "LEFT JOIN agent_queue ON conf_bridges.agent_id = agent_queue.agent_id "
+                "LEFT JOIN queues ON agent_queue.queue_id = queues.id "
+                "LEFT JOIN campaigns ON queues.campaign_id = campaigns.id "
+                "WHERE campaigns.code = ? AND conf_bridges.server_id = ? "
+                "AND online = 1 AND available = 1 AND pause = 1"));
+        pstmt->setString(1, queueName);
+        pstmt->setUInt64(2, serverId); // Setting the first parameter as serverId
+        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+
+        // Check if the result has a row and retrieve the count
+        if (res->next())
+        {
+            return res->getInt(1); // Fetch the count from the first column
+        }
+        else
+        {
+            return 0; // No rows matched, return 0 as count
+        }
+    }
+    catch (sql::SQLException &e)
+    {
+        std::cerr << "SQL error: " << e.what() << std::endl;
+        return -1; // Return -1 or another error code to indicate a failure
+    }
+}
+
+std::vector<Call> DBConnection::fetchAllCalls(const std::string &queueName, u_long serverId)
+{
+    std::vector<Call> calls;
+    try {
+        // Prepare the SQL statement
+        std::shared_ptr<sql::PreparedStatement> pstmt(
+            conn->prepareStatement("SELECT phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout_sec, api_id, called, answered "
+                                   "FROM placed_calls WHERE campaign = ? AND server_id = ?")
+        );
+        pstmt->setString(1, queueName);
+        pstmt->setUInt64(2, serverId);
+
+        // Execute the query
+        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+
+        // Loop through the result set and create Call objects
+        while (res->next()) {
+            // Extract each field value from the result set
+            std::string phone = res->getString("phone");
+            std::string campaign = res->getString("campaign");
+            std::string leadid = res->getString("leadid");
+            std::string callerid = res->getString("callerid");
+            std::string usecloser = res->getBoolean("usecloser") ? "true" : "false";  // Converting boolean to string if needed
+            std::string dspmode = res->getString("dspmode");
+            std::string trunk = res->getString("trunk");
+            std::string dialprefix = res->getString("dialprefix");
+            std::string transfer = res->getString("transfer");
+            unsigned short int timeout_sec = res->getUInt("timeout_sec");
+            std::string api_id = res->getString("api_id");
+            bool called = res->getBoolean("called");
+            bool answered = res->getBoolean("answered");
+
+            // Create a Call object and add it to the vector
+            Call call(phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout_sec);
+            call.SetCalled(called);      // Assuming Call has a method to set 'called'
+            call.SetAnswered(answered);  // Assuming Call has a method to set 'answered'
+            calls.push_back(call);
+        }
+    } catch (sql::SQLException &e) {
+        std::cerr << "SQL error: " << e.what() << std::endl;
+    }
+
+    return calls;
+}
+
+void DBConnection::insertCall(const Call &call)
+{
+    // Database logic to insert a new call
+}
+
+void DBConnection::updateCall(const Call &call)
+{
+    // Database logic to update an existing call's status or data
+}
+
+int DBConnection::getLinesDialing(const std::string &queueName, u_long serverId)
+{
+    try
+    {
+        std::shared_ptr<sql::PreparedStatement> pstmt(
+            conn->prepareStatement("SELECT * FROM placed_calls WHERE called = true AND answered = true AND campaign = ? AND server_id = ?;"));
+        pstmt->setString(1, queueName);
+        pstmt->setUInt64(2, serverId); // Setting the first parameter as serverId
+        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+
+        // Check if the result has a row and retrieve the count
+        if (res->next())
+        {
+            return res->getInt(1); // Fetch the count from the first column
+        }
+        else
+        {
+            return 0; // No rows matched, return 0 as count
+        }
+    }
+    catch (sql::SQLException &e)
+    {
+        std::cerr << "SQL error: " << e.what() << std::endl;
+        return -1; // Return -1 or another error code to i
+    }
 }

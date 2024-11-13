@@ -9,6 +9,7 @@
 #include <regex>
 #include <nlohmann/json.hpp>
 #include <set>
+#include <ctime>
 #include "Socket.h"
 #include "exceptions.h"
 #include "etcinfo.h"
@@ -29,7 +30,10 @@ class Agent
 public:
     Agent() {}
     ~Agent() {}
-
+    static constexpr int STATUS_AVAILABLE = 1;
+    static constexpr int STATUS_ONCALL = -1;
+    static constexpr int STATUS_OFFLINE = -2;
+    static constexpr int STATUS_ONPAUSE = -3;
     // Getters
     u_long getAgentId() const { return agentId; }
     u_long getServerId() const { return serverId; }
@@ -53,7 +57,23 @@ public:
     void setAgentChannelId(const std::string& channelId) { agentChannelId = channelId; }
     void setAgentChannel(const std::string& channel) { agentChannel = channel; }
     void setUpdatedAt(std::time_t time) { updatedAt = time; }
-    
+
+    const u_long &GetNumber() const { return agentId; }
+
+    const long int &GetStatus() const
+	{
+		if(online==0){
+            return STATUS_OFFLINE;
+        } else if(online==1 && pause == 1) {
+            return STATUS_ONPAUSE;
+        } else if(online==1 && pause == 0 && available == 0) {
+            return STATUS_ONCALL;
+        }  else if(online==1 && pause == 0 && available == 0) {
+            return STATUS_AVAILABLE;
+        }
+        return 0;
+	}
+
 private:
     u_long agentId;
     u_long serverId;
@@ -73,6 +93,62 @@ class AgentList
 public:
     AgentList() {}
     ~AgentList() {}
+
+    const int size() const { return ItsAgents.size(); }
+	const Agent &at(const int &whichAgent) const { return ItsAgents.at(whichAgent); }
+
+	bool exists(const int &agentNum)
+	{
+		//	Agent TheAgent;
+		for (unsigned int i = 0; i < ItsAgents.size(); i++)
+		{
+			if (agentNum == ItsAgents.at(i).GetNumber())
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+    void ParseAgentList(std::string queueName)
+	{
+
+		//	std::cout << "Got to beginning of ParseAgentList" << std::endl;
+		DBConnection dbConn;
+		u_long serverId = std::stoull(getServerId());
+		std::vector<ParsedConfBridge> agents = dbConn.getQueueConfBridges(serverId, queueName);
+
+		if (agents.empty())
+		{
+			std::cout << "No agents found in the database." << std::endl;
+		}
+		else
+		{
+			std::cout << "agent.h Agents found: " << agents.size() << " ServerID: " << serverId << std::endl;
+		}
+
+		for (const auto &agent : agents)
+		{
+			Agent TempAgent = ReturnAgent(agent);
+			std::cout << " - Agent ID: " << TempAgent.GetNumber() << std::endl;
+			int tempAgentNum = TempAgent.GetNumber();
+			if (!this->exists(tempAgentNum))
+			{
+				ItsAgents.push_back(TempAgent);
+			}
+		}
+
+		std::stable_sort(ItsAgents.begin(), ItsAgents.end());
+		//ParseAgentChannelStatus();
+		//	std::cout << "Got to end of ParseAgentList" << std::endl;
+	}
+
+    void Initialize(std::string queueName)
+	{
+		ParseAgentQueueStatus(queueName);
+		// Since "show queue" doesn't show us current call status of the agent we'll get info via ARI
+		//ParseAgentChannelStatus();
+	}
 
 private:
     std::vector<Agent> ItsAgents;
