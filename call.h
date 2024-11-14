@@ -19,6 +19,7 @@
 #include <signal.h>
 #include <vector>
 #include <curl/curl.h>
+#include <string>
 #include "DBConnection.h"
 #include "ParsedCall.h"
 #include "exceptions.h"
@@ -45,7 +46,7 @@ class Call
 public:
 	Call(const std::string &number,
 		 const std::string &campaign,
-		 const std::string &leadid,
+		 u_long leadid,
 		 const std::string &callerid,
 		 const std::string &usecloser,
 		 const std::string &dspmode,
@@ -72,11 +73,13 @@ public:
 		timeval tv;
 		gettimeofday(&tv, NULL);
 		itsTime = tv.tv_sec % 1000000;
+		ParsedCall parsedCall = this->saveCallToDB();
+		this->SetId(parsedCall.id);
 	}
-
+	const std::string &GetId() const { return itsId; }
 	const std::string &GetNumber() const { return itsNumber; }
 	const std::string &GetCampaign() const { return itsCampaign; }
-	const std::string &GetLeadId() const { return itsLeadId; }
+	u_long GetLeadId() const { return itsLeadId; }
 	const std::string &GetCallerId() const { return itsCallerId; }
 	const std::string &GetUseCloser() const { return itsUseCloser; }
 	const std::string &GetDSPMode() const { return itsDSPMode; }
@@ -85,10 +88,11 @@ public:
 	const std::string &GetTransfer() const { return itsTransfer; }
 	const unsigned long int &GetTime() const { return itsTime; }
 	const unsigned short int &GetTimeout() const { return itsTimeout; }
-	const u_long &GetServerId() const { return itsServerId; }
+	const u_long GetServerId() const { return itsServerId; }
 	const bool &HasBeenCalled() const { return called; }
 	const bool &HasBeenAnswered() const { return answered; }
 
+	void SetId(std::string& newId) { itsId = newId; }
 	void SetAnswered(bool v = true) { answered = v; }
 	void SetCalled(bool v) { answered = v; }
 	// TODO move to ARI interface
@@ -140,9 +144,9 @@ public:
 										 "&extension=" + dialPrefix + itsNumber +
 										 "&context=" + (itsTransfer == "TRANSFER" ? "gdtransfer" : "gdincoming") +
 										 "&priority=1" +
-										 "&callerId=" + itsCampaign + "-" + itsLeadId + "-" + itsUseCloser +
+										 "&callerId=" + itsCampaign + "-" + std::to_string(itsLeadId) + "-" + itsUseCloser +
 										 "&timeout=" + itos(itsTimeout) +
-										 "&variables[__LEADID]=" + itsLeadId +
+										 "&variables[__LEADID]=" + std::to_string(itsLeadId) +
 										 "&variables[__CAMPAIGN]=" + itsCampaign +
 										 "&variables[__DSPMODE]=" + itsDSPMode +
 										 "&variables[__ISTRANSFER]=" + itsTransfer +
@@ -164,7 +168,7 @@ public:
 				}
 				else
 				{
-					std::cout << mainHost << ": " + itsCampaign + " - " + itsNumber + " - " + itsLeadId + " - " + itsUseCloser << std::endl;
+					std::cout << mainHost << ": " + itsCampaign + " - " + itsNumber + " - " + std::to_string(itsLeadId) + " - " + itsUseCloser << std::endl;
 				}
 
 				// Cleanup
@@ -172,12 +176,14 @@ public:
 			}
 			if (doColor)
 			{
-				std::cout << mainHost << neon << ": " + itsCampaign + " - " + itsNumber + " - " + itsLeadId + " - " + itsUseCloser << norm << std::endl;
+				std::cout << mainHost << neon << ": " + itsCampaign + " - " + itsNumber + " - " + std::to_string(itsLeadId) + " - " + itsUseCloser << norm << std::endl;
 			}
 			else
 			{
-				std::cout << mainHost << ": " + itsCampaign + " - " + itsNumber + " - " + itsLeadId + " - " + itsUseCloser << std::endl;
+				std::cout << mainHost << ": " + itsCampaign + " - " + itsNumber + " - " + std::to_string(itsLeadId) + " - " + itsUseCloser << std::endl;
 			}
+			this->SetCalled(true);
+			this->updateCallInDB();
 
 			usleep(10000000);
 
@@ -194,11 +200,46 @@ public:
 	~Call() {}
 
 private:
-	std::string itsNumber, itsCampaign, itsLeadId, itsCallerId, itsUseCloser, itsDSPMode, itsTrunk, itsDialPrefix, itsTransfer;
+	std::string itsId, itsNumber, itsCampaign, itsCallerId, itsUseCloser, itsDSPMode, itsTrunk, itsDialPrefix, itsTransfer;
 	unsigned long int itsTime;
 	unsigned short int itsTimeout;
-	u_long itsServerId;
+	u_long itsServerId, itsLeadId;
 	bool called, answered;
+
+	ParsedCall saveCallToDB()
+	{
+		DBConnection dbConn;
+		ParsedCall parsedCall = this->convertToParsedCall(); // Convert Call to ParsedCall
+		return dbConn.insertCall(parsedCall);
+	}
+
+	void updateCallInDB()
+	{
+		DBConnection dbConn;
+		ParsedCall parsedCall = this->convertToParsedCall(); // Convert Call to ParsedCall
+		dbConn.updateCall(parsedCall);
+	}
+
+	ParsedCall convertToParsedCall()
+	{
+		ParsedCall parsedCall;
+		parsedCall.id = this->GetId();
+		parsedCall.number = this->GetNumber();
+		parsedCall.campaign = this->GetCampaign();
+		parsedCall.leadid = this->GetLeadId();
+		parsedCall.callerid = this->GetCallerId();
+		parsedCall.usecloser = this->GetUseCloser();
+		parsedCall.dspmode = this->GetDSPMode();
+		parsedCall.trunk = this->GetTrunk();
+		parsedCall.dialprefix = this->GetDialPrefix();
+		parsedCall.transfer = this->GetTransfer();
+		parsedCall.timeout = this->GetTimeout();
+		parsedCall.server_id = this->GetServerId(); // assuming GetServerId() returns api_id
+		parsedCall.called = this->HasBeenCalled();
+		parsedCall.answered = this->HasBeenAnswered();
+
+		return parsedCall;
+	}
 };
 
 class CallCache
@@ -219,7 +260,7 @@ public:
 
 	void AddCall(const std::string &phone,
 				 const std::string &campaign,
-				 const std::string &leadid,
+				 u_long leadid,
 				 const std::string &callerid,
 				 const std::string &usecloser,
 				 const std::string &dspmode,
@@ -233,12 +274,11 @@ public:
 		itsCalls.push_back(TheCall);
 	}
 
-	void SetAnswered(const std::string &campaign, const std::string &leadid)
+	void SetAnswered(const std::string &campaign, u_long leadid)
 	{
 
 		for (unsigned int i = 0; i < itsCalls.size(); i++)
 		{
-
 			if (itsCalls.at(i).GetCampaign() == campaign && itsCalls.at(i).GetLeadId() == leadid)
 			{
 				itsCalls.at(i).SetAnswered();
@@ -295,21 +335,23 @@ private:
 
 	ParsedCall convertToParsedCall(const Call &call)
 	{
-		return ParsedCall{
-			call.GetNumber(),
-			call.GetCampaign(),
-			call.GetLeadId(),
-			call.GetCallerId(),
-			call.GetUseCloser(),
-			call.GetDSPMode(),
-			call.GetTrunk(),
-			call.GetDialPrefix(),
-			call.GetTransfer(),
-			call.GetTimeout(),
-			call.GetServerId(),  // Assuming `GetApiId()` exists in Call for the API ID
-			call.HasBeenCalled(),  // Assuming `IsCalled()` exists in Call
-			call.HasBeenAnswered() // Assuming `IsAnswered()` exists in Call
-		};
+		ParsedCall parsedCall;
+		parsedCall.id = call.GetId();
+		parsedCall.number = call.GetNumber();
+		parsedCall.campaign = call.GetCampaign();
+		parsedCall.leadid = call.GetLeadId();
+		parsedCall.callerid = call.GetCallerId();
+		parsedCall.usecloser = call.GetUseCloser();
+		parsedCall.dspmode = call.GetDSPMode();
+		parsedCall.trunk = call.GetTrunk();
+		parsedCall.dialprefix = call.GetDialPrefix();
+		parsedCall.transfer = call.GetTransfer();
+		parsedCall.timeout = call.GetTimeout();
+		parsedCall.server_id = call.GetServerId(); // assuming GetServerId() returns api_id
+		parsedCall.called = call.HasBeenCalled();
+		parsedCall.answered = call.HasBeenAnswered();
+
+		return parsedCall;
 	}
 
 	void loadCallsFromDB()
@@ -330,11 +372,11 @@ private:
 		}
 	}
 
-	void saveCallToDB(const Call &call)
+	ParsedCall saveCallToDB(const Call &call)
 	{
 		DBConnection dbConn;
 		ParsedCall parsedCall = convertToParsedCall(call); // Convert Call to ParsedCall
-		dbConn.insertCall(parsedCall);
+		return dbConn.insertCall(parsedCall);
 	}
 
 	void updateCallInDB(const Call &call)

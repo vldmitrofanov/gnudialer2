@@ -410,7 +410,7 @@ int main(int argc, char **argv)
                         {
                             query += ", ";
                         }
-                        TheCallCache->AddCall(lead.second, queueName, lead.first, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout);
+                        TheCallCache->AddCall(lead.second, queueName, std::stoul(lead.first), callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout);
                         line++;
                     }
                     query += ")";
@@ -431,6 +431,22 @@ int main(int argc, char **argv)
                     }
                 }
             }
+            try
+			{
+				TheCallCache->CallAll();
+			}
+
+			catch (xOutOfHosts)
+			{
+				std::cerr << "Exception: Ran out of hosts!" << std::endl;
+				return 1;
+			}
+
+			catch (xForkError)
+			{
+				std::cerr << "Exception: Unable to fork the parent process!" << std::endl;
+				return 1;
+			}
         }
 
         usleep(100000);

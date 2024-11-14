@@ -37,7 +37,7 @@ public:
     bool updateAbnStats(const std::string &queueName, u_long serverId, const ParsedQueueOperations &queueOperations);
     int getAvailableAgentBridges(const std::string &queueName, u_long serverId);
     std::vector<ParsedCall> fetchAllCalls(u_long serverId);
-    void insertCall(const ParsedCall &call);
+    ParsedCall insertCall(const ParsedCall &call);
     void updateCall(const ParsedCall &call);
     int getLinesDialing(const std::string &queueName, u_long serverId);
     std::vector<std::pair<std::string, std::string>> selectLeads(const std::string &query);

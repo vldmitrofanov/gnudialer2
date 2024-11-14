@@ -573,7 +573,7 @@ std::vector<ParsedCall> DBConnection::fetchAllCalls(u_long serverId)
             ParsedCall parsedCall{
                 .number = res->getString("phone"),
                 .campaign = res->getString("campaign"),
-                .leadid = res->getString("leadid"),
+                .leadid = res->getUInt64("leadid"),
                 .callerid = res->getString("callerid"),
                 .usecloser = res->getBoolean("usecloser") ? "true" : "false",
                 .dspmode = res->getString("dspmode"),
@@ -601,9 +601,47 @@ std::vector<ParsedCall> DBConnection::fetchAllCalls(u_long serverId)
     return calls;
 }
 
-void DBConnection::insertCall(const ParsedCall &call)
-{
-    // Database logic to insert a new call
+ParsedCall DBConnection::insertCall(const ParsedCall &call) {
+    ParsedCall result = call;  // Start with a copy of the original ParsedCall
+    try {
+        // Prepare the INSERT statement
+        std::shared_ptr<sql::PreparedStatement> pstmt(
+            conn->prepareStatement(
+                "INSERT INTO calls (number, campaign, leadid, callerid, usecloser, dspmode, "
+                "trunk, dialprefix, transfer, timeout, api_id, called, answered) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+
+        // Bind values to the prepared statement
+        pstmt->setString(1, call.number);
+        pstmt->setString(2, call.campaign);
+        pstmt->setUInt64(3, call.leadid);
+        pstmt->setString(4, call.callerid);
+        pstmt->setString(5, call.usecloser);
+        pstmt->setString(6, call.dspmode);
+        pstmt->setString(7, call.trunk);
+        pstmt->setString(8, call.dialprefix);
+        pstmt->setString(9, call.transfer);
+        pstmt->setUInt(10, call.timeout);
+        pstmt->setUInt64(11, call.server_id);
+        pstmt->setBoolean(12, call.called);
+        pstmt->setBoolean(13, call.answered);
+
+        // Execute the insertion
+        pstmt->executeUpdate();
+
+        // Retrieve the newly inserted `id` and `placed_at` timestamp
+        std::shared_ptr<sql::PreparedStatement> selectStmt(
+            conn->prepareStatement("SELECT id, placed_at FROM calls WHERE id = LAST_INSERT_ID()"));
+
+        std::unique_ptr<sql::ResultSet> res(selectStmt->executeQuery());
+        if (res->next()) {
+            result.id = res->getString("id");  // Assuming id is an unsigned 64-bit integer
+        }
+    } catch (const sql::SQLException &e) {
+        std::cerr << "SQL error in insertCall: " << e.what() << std::endl;
+    }
+
+    return result;
 }
 
 void DBConnection::updateCall(const ParsedCall &call)

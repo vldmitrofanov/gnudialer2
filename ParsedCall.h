@@ -6,16 +6,17 @@
 
 struct ParsedCall
 {
-    const std::string number;
-    const std::string campaign;
-    const std::string leadid;
-    const std::string callerid;
-    const std::string usecloser;
-    const std::string dspmode;
-    const std::string trunk;
-    const std::string dialprefix;
-    const std::string transfer;
-    const unsigned short int timeout;
+    std::string id;
+    std::string number;
+    std::string campaign;
+    u_long leadid;
+    std::string callerid;
+    std::string usecloser;
+    std::string dspmode;
+    std::string trunk;
+    std::string dialprefix;
+    std::string transfer;
+    unsigned short int timeout;
     u_long server_id;
     bool called;
     bool answered;
