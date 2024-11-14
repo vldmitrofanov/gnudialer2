@@ -450,9 +450,9 @@ int main(int argc, char **argv)
 				return 1;
 			}
             // end of queue for loop
-            usleep(1000);
+            usleep(500000);
         }
         // end of while loop
-        usleep(100000);
+        usleep(1000000);
     }
 }
