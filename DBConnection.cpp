@@ -548,7 +548,7 @@ int DBConnection::getAvailableAgentBridges(const std::string &queueName, u_long 
     }
     catch (sql::SQLException &e)
     {
-        std::cerr << "SQL error: " << e.what() << std::endl;
+        std::cerr << "SQL error in getAvailableAgentBridges: " << e.what() << std::endl;
         return -1; // Return -1 or another error code to indicate a failure
     }
 }
@@ -575,7 +575,7 @@ std::vector<ParsedCall> DBConnection::fetchAllCalls(u_long serverId)
                 .campaign = res->getString("campaign"),
                 .leadid = res->getUInt64("leadid"),
                 .callerid = res->getString("callerid"),
-                .usecloser = res->getBoolean("usecloser") ? "true" : "false",
+                .usecloser = res->getBoolean("usecloser"),
                 .dspmode = res->getString("dspmode"),
                 .trunk = res->getString("trunk"),
                 .dialprefix = res->getString("dialprefix"),
@@ -595,7 +595,7 @@ std::vector<ParsedCall> DBConnection::fetchAllCalls(u_long serverId)
     }
     catch (sql::SQLException &e)
     {
-        std::cerr << "SQL error: " << e.what() << std::endl;
+        std::cerr << "SQL error in fetchAllCalls: " << e.what() << std::endl;
     }
 
     return calls;
@@ -666,7 +666,7 @@ bool DBConnection::updateCall(const ParsedCall &call)
 
         return true;
     } catch (const sql::SQLException &e) {
-        std::cerr << "SQL error in insertCall: " << e.what() << std::endl;
+        std::cerr << "SQL error in updateCall: " << e.what() << std::endl;
         return false;
     }
 }
@@ -693,7 +693,7 @@ int DBConnection::getLinesDialing(const std::string &queueName, u_long serverId)
     }
     catch (sql::SQLException &e)
     {
-        std::cerr << "SQL error: " << e.what() << std::endl;
+        std::cerr << "SQL error in getLinesDialing: " << e.what() << std::endl;
         return -1; // Return -1 or another error code to i
     }
 }
@@ -718,7 +718,7 @@ std::vector<std::pair<std::string, std::string>> DBConnection::selectLeads(const
     catch (sql::SQLException &e)
     {
         std::cerr << "Error selecting leads from mysql! Did you run --tzpopulate?" << std::endl;
-        std::cerr << "SQL error: " << e.what() << std::endl;
+        std::cerr << "SQL error in selectLeads: " << e.what() << std::endl;
     }
 
     return leads;
