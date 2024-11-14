@@ -38,7 +38,7 @@ public:
     int getAvailableAgentBridges(const std::string &queueName, u_long serverId);
     std::vector<ParsedCall> fetchAllCalls(u_long serverId);
     ParsedCall insertCall(const ParsedCall &call);
-    void updateCall(const ParsedCall &call);
+    bool updateCall(const ParsedCall &call);
     int getLinesDialing(const std::string &queueName, u_long serverId);
     std::vector<std::pair<std::string, std::string>> selectLeads(const std::string &query);
     bool executeUpdate(const std::string &query);

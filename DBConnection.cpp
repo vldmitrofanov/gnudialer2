@@ -607,8 +607,8 @@ ParsedCall DBConnection::insertCall(const ParsedCall &call) {
         // Prepare the INSERT statement
         std::shared_ptr<sql::PreparedStatement> pstmt(
             conn->prepareStatement(
-                "INSERT INTO calls (number, campaign, leadid, callerid, usecloser, dspmode, "
-                "trunk, dialprefix, transfer, timeout, api_id, called, answered) "
+                "INSERT INTO placed_calls (number, campaign, leadid, callerid, usecloser, dspmode, "
+                "trunk, dialprefix, transfer, timeout, server_id, called, answered) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
 
         // Bind values to the prepared statement
@@ -631,7 +631,7 @@ ParsedCall DBConnection::insertCall(const ParsedCall &call) {
 
         // Retrieve the newly inserted `id` and `placed_at` timestamp
         std::shared_ptr<sql::PreparedStatement> selectStmt(
-            conn->prepareStatement("SELECT id, placed_at FROM calls WHERE id = LAST_INSERT_ID()"));
+            conn->prepareStatement("SELECT id, placed_at FROM placed_calls WHERE id = LAST_INSERT_ID()"));
 
         std::unique_ptr<sql::ResultSet> res(selectStmt->executeQuery());
         if (res->next()) {
@@ -644,9 +644,31 @@ ParsedCall DBConnection::insertCall(const ParsedCall &call) {
     return result;
 }
 
-void DBConnection::updateCall(const ParsedCall &call)
+bool DBConnection::updateCall(const ParsedCall &call)
 {
-    // Database logic to update an existing call's status or data
+    try {
+        // Prepare the INSERT statement
+        std::shared_ptr<sql::PreparedStatement> pstmt(
+            conn->prepareStatement(
+                "UPDATE placed_calls SET called = ?, answered = ? "
+                "WHERE campaign = ? AND leadid = ? and server_id = ?"));
+
+        // Bind values to the prepared statement
+        pstmt->setBoolean(1, call.called);
+        pstmt->setBoolean(2, call.answered);
+        pstmt->setString(3, call.campaign);
+        pstmt->setUInt64(4, call.leadid);
+        pstmt->setUInt64(5, call.server_id);
+        
+
+        // Execute the insertion
+        pstmt->executeUpdate();
+
+        return true;
+    } catch (const sql::SQLException &e) {
+        std::cerr << "SQL error in insertCall: " << e.what() << std::endl;
+        return false;
+    }
 }
 
 int DBConnection::getLinesDialing(const std::string &queueName, u_long serverId)
