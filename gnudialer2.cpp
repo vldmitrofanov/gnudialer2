@@ -255,7 +255,7 @@ int main(int argc, char **argv)
 
                 // this is just a base to get the building of the query string going
                 std::string tableName = "campaign_" + queueName;
-                query = "SELECT id, phone FROM " + tableName + " WHERE NOT EXISTS ( SELECT 1 FROM placed_calls AS pc WHERE " + tableName + ".campaign = pc.campaign AND " + tableName + ".leadid = pc.leadid ) ";
+                query = "SELECT id, phone FROM " + tableName + " WHERE NOT EXISTS ( SELECT 1 FROM placed_calls AS pc WHERE pc.campaign = '" + queueName + "' AND " + tableName + ".id = pc.leadid ) ";
 
                 if (calltoday != "true")
                 {
