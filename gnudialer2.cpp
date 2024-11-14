@@ -404,14 +404,13 @@ int main(int argc, char **argv)
                     int line = 0;
                     for (const auto &lead : leads)
                     {
-                        std::cout<< "ID (first) "<< lead.first << " PHONE (second) " << lead.second << std::endl;
-                            query += lead.first;
-                            if (line>0 && line<counter-1)
-                            {
-                                query += ", ";
-                            }
-                            TheCallCache->AddCall(lead.second, queueName, lead.first, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout);
-                        
+                        std::cout << "ID (first) " << lead.first << " PHONE (second) " << lead.second << std::endl;
+                        query += lead.first;
+                        if (line > 0 && line < counter)
+                        {
+                            query += ", ";
+                        }
+                        TheCallCache->AddCall(lead.second, queueName, lead.first, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout);
                     }
                     query += ")";
                     if (counter < linestodial)
