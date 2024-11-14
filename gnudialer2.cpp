@@ -410,7 +410,8 @@ int main(int argc, char **argv)
                         {
                             query += ", ";
                         }
-                        TheCallCache->AddCall(lead.second, queueName, std::stoul(lead.first), callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout);
+                        bool usecloserBool = (usecloser == "1" || usecloser == "true" || usecloser == "TRUE" || usecloser == "True")?true:false;
+                        TheCallCache->AddCall(lead.second, queueName, std::stoul(lead.first), callerid, usecloserBool, dspmode, trunk, dialprefix, transfer, timeout);
                         line++;
                     }
                     query += ")";

@@ -48,7 +48,7 @@ public:
 		 const std::string &campaign,
 		 u_long leadid,
 		 const std::string &callerid,
-		 const std::string &usecloser,
+		 bool usecloser,
 		 const std::string &dspmode,
 		 const std::string &trunk,
 		 const std::string &dialprefix,
@@ -81,7 +81,7 @@ public:
 	const std::string &GetCampaign() const { return itsCampaign; }
 	u_long GetLeadId() const { return itsLeadId; }
 	const std::string &GetCallerId() const { return itsCallerId; }
-	const std::string &GetUseCloser() const { return itsUseCloser; }
+	const bool &GetUseCloser() const { return itsUseCloser; }
 	const std::string &GetDSPMode() const { return itsDSPMode; }
 	const std::string &GetTrunk() const { return itsTrunk; }
 	const std::string &GetDialPrefix() const { return itsDialPrefix; }
@@ -117,6 +117,7 @@ public:
 
 			curl = curl_easy_init();
 			std::string mainHost = getApiUrl();
+			std::string itsUseCloserStr = itsUseCloser ? "true" : "false"; 
 			// std::cout << "ARI creds: " <<  TheAsterisk.GetAriHost() << ":" + TheAsterisk.GetAriPort() + " - " + TheAsterisk.GetAriUser() + ":" + TheAsterisk.GetAriPass() << std::endl;
 			if (curl)
 			{
@@ -140,11 +141,12 @@ public:
 				{
 					throw std::runtime_error("Placeholder _EXTEN_ not found in the trunk string. Trunk example: SIP/faketrunk/sip!_EXTEN_@127.0.0.1!5062");
 				}
+				
 				std::string postFields = "endpoint=" + itsTrunk +
 										 "&extension=" + dialPrefix + itsNumber +
 										 "&context=" + (itsTransfer == "TRANSFER" ? "gdtransfer" : "gdincoming") +
 										 "&priority=1" +
-										 "&callerId=" + itsCampaign + "-" + std::to_string(itsLeadId) + "-" + itsUseCloser +
+										 "&callerId=" + itsCampaign + "-" + std::to_string(itsLeadId) + "-" + itsUseCloserStr +
 										 "&timeout=" + itos(itsTimeout) +
 										 "&variables[__LEADID]=" + std::to_string(itsLeadId) +
 										 "&variables[__CAMPAIGN]=" + itsCampaign +
@@ -168,7 +170,7 @@ public:
 				}
 				else
 				{
-					std::cout << mainHost << ": " + itsCampaign + " - " + itsNumber + " - " + std::to_string(itsLeadId) + " - " + itsUseCloser << std::endl;
+					std::cout << mainHost << ": " + itsCampaign + " - " + itsNumber + " - " + std::to_string(itsLeadId) + " - " + itsUseCloserStr << std::endl;
 				}
 
 				// Cleanup
@@ -176,11 +178,11 @@ public:
 			}
 			if (doColor)
 			{
-				std::cout << mainHost << neon << ": " + itsCampaign + " - " + itsNumber + " - " + std::to_string(itsLeadId) + " - " + itsUseCloser << norm << std::endl;
+				std::cout << mainHost << neon << ": " + itsCampaign + " - " + itsNumber + " - " + std::to_string(itsLeadId) + " - " + itsUseCloserStr << norm << std::endl;
 			}
 			else
 			{
-				std::cout << mainHost << ": " + itsCampaign + " - " + itsNumber + " - " + std::to_string(itsLeadId) + " - " + itsUseCloser << std::endl;
+				std::cout << mainHost << ": " + itsCampaign + " - " + itsNumber + " - " + std::to_string(itsLeadId) + " - " + itsUseCloserStr << std::endl;
 			}
 			this->SetCalled(true);
 			this->updateCallInDB();
@@ -200,11 +202,11 @@ public:
 	~Call() {}
 
 private:
-	std::string itsId, itsNumber, itsCampaign, itsCallerId, itsUseCloser, itsDSPMode, itsTrunk, itsDialPrefix, itsTransfer;
+	std::string itsId, itsNumber, itsCampaign, itsCallerId, itsDSPMode, itsTrunk, itsDialPrefix, itsTransfer;
 	unsigned long int itsTime;
 	unsigned short int itsTimeout;
 	u_long itsServerId, itsLeadId;
-	bool called, answered;
+	bool called, answered, itsUseCloser;
 
 	ParsedCall saveCallToDB()
 	{
@@ -262,7 +264,7 @@ public:
 				 const std::string &campaign,
 				 u_long leadid,
 				 const std::string &callerid,
-				 const std::string &usecloser,
+				 bool usecloser,
 				 const std::string &dspmode,
 				 const std::string &trunk,
 				 const std::string &dialprefix,

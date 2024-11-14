@@ -11,7 +11,7 @@ struct ParsedCall
     std::string campaign;
     u_long leadid;
     std::string callerid;
-    std::string usecloser;
+    bool usecloser;
     std::string dspmode;
     std::string trunk;
     std::string dialprefix;

@@ -560,7 +560,7 @@ std::vector<ParsedCall> DBConnection::fetchAllCalls(u_long serverId)
     {
         // Prepare the SQL statement
         std::shared_ptr<sql::PreparedStatement> pstmt(
-            conn->prepareStatement("SELECT phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout_sec, api_id, called, answered "
+            conn->prepareStatement("SELECT phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout, api_id, called, answered "
                                    "FROM placed_calls WHERE server_id = ?"));
         pstmt->setUInt64(1, serverId);
 
@@ -580,14 +580,14 @@ std::vector<ParsedCall> DBConnection::fetchAllCalls(u_long serverId)
                 .trunk = res->getString("trunk"),
                 .dialprefix = res->getString("dialprefix"),
                 .transfer = res->getString("transfer"),
-                .timeout = static_cast<unsigned short int>(res->getUInt("timeout_sec")),
+                .timeout = static_cast<unsigned short int>(res->getUInt("timeout")),
                 .server_id = res->getUInt64("server_id"),
                 .called = res->getBoolean("called"),
                 .answered = res->getBoolean("answered")};
             calls.push_back(parsedCall);
 
             // Create a Call object and add it to the vector
-            // Call call(phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout_sec);
+            // Call call(phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout);
             // call.SetCalled(called);     // Assuming Call has a method to set 'called'
             // call.SetAnswered(answered); // Assuming Call has a method to set 'answered'
             // calls.push_back(call);
@@ -616,7 +616,7 @@ ParsedCall DBConnection::insertCall(const ParsedCall &call) {
         pstmt->setString(2, call.campaign);
         pstmt->setUInt64(3, call.leadid);
         pstmt->setString(4, call.callerid);
-        pstmt->setString(5, call.usecloser);
+        pstmt->setBoolean(5, call.usecloser);
         pstmt->setString(6, call.dspmode);
         pstmt->setString(7, call.trunk);
         pstmt->setString(8, call.dialprefix);
