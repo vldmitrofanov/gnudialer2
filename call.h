@@ -97,7 +97,7 @@ public:
 
 	void SetId(std::string& newId) { itsId = newId; }
 	void SetAnswered(bool v = true) { answered = v; }
-	void SetCalled(bool v) { answered = v; }
+	void SetCalled(bool v) { called = v; }
 	// TODO move to ARI interface
 	void DoCall()
 	{
