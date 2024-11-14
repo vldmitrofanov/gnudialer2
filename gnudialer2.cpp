@@ -406,11 +406,12 @@ int main(int argc, char **argv)
                     {
                         std::cout << "ID (first) " << lead.first << " PHONE (second) " << lead.second << std::endl;
                         query += lead.first;
-                        if (line > 0 && line < counter)
+                        if (line > 0 && line < counter - 1)
                         {
                             query += ", ";
                         }
                         TheCallCache->AddCall(lead.second, queueName, lead.first, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout);
+                        line++;
                     }
                     query += ")";
                     if (counter < linestodial)
