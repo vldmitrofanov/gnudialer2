@@ -448,8 +448,10 @@ int main(int argc, char **argv)
 				std::cerr << "Exception: Unable to fork the parent process!" << std::endl;
 				return 1;
 			}
+            // end of queue for loop
+            usleep(1000);
         }
-
-        usleep(1000000);
+        // end of while loop
+        usleep(100000);
     }
 }
