@@ -326,7 +326,8 @@ public:
 			{
 				try
 				{
-					itsCalls.at(i).DoCall();
+					itsCalls.at(i).SetCalled();
+					itsCalls.at(i).DoCall();					
 				}
 				catch (const xConnectionError &e)
 				{
