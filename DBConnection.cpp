@@ -493,9 +493,9 @@ bool DBConnection::updateAbnStats(const std::string &queueName, u_long serverId,
                 "UPDATE queue_operations "
                 "JOIN queues ON queue_operations.queue_id = queues.id "
                 "JOIN campaigns ON queues.campaign_id = campaigns.id "
-                "SET calls = ?, totalcalls = ?, abandons = ?, totalabandons = ?, "
-                "disconnects = ?, noanswers = ?, busies = ?, congestions = ?, "
-                "ansmachs = ?, updated_at = NOW() "
+                "SET queue_operations.calls = ?, queue_operations.totalcalls = ?, queue_operations.abandons = ?, queue_operations.totalabandons = ?, "
+                "queue_operations.disconnects = ?, queue_operations.noanswers = ?, queue_operations.busies = ?, queue_operations.congestions = ?, "
+                "queue_operations.ansmachs = ?, queue_operations.updated_at = NOW() "
                 "WHERE campaigns.code = ? AND queues.server_id = ?"));
 
         pstmt->setInt(1, queueOperations.calls ? queueOperations.calls : 0);
