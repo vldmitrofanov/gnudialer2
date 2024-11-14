@@ -53,7 +53,10 @@ public:
 		 const std::string &trunk,
 		 const std::string &dialprefix,
 		 const std::string &transfer,
-		 const unsigned short int &timeout)
+		 const unsigned short int &timeout,
+		 bool setCalled,
+		 bool setAnswered,
+		 u_long serverId)
 	{
 
 		itsNumber = number;
@@ -66,15 +69,15 @@ public:
 		itsDialPrefix = dialprefix;
 		itsTransfer = transfer;
 		itsTimeout = timeout;
-		called = false;
-		answered = false;
-		itsServerId = std::stoul(getServerId());
+		called = setCalled;
+		answered = setAnswered;
+		itsServerId = serverId;
 
 		timeval tv;
 		gettimeofday(&tv, NULL);
 		itsTime = tv.tv_sec % 1000000;
-		ParsedCall parsedCall = this->saveCallToDB();
-		this->SetId(parsedCall.id);
+		//ParsedCall parsedCall = this->saveCallToDB();
+		//this->SetId(parsedCall.id);
 	}
 	const std::string &GetId() const { return itsId; }
 	const std::string &GetNumber() const { return itsNumber; }
@@ -276,7 +279,9 @@ public:
 				 const unsigned short int &itsTimeout)
 	{
 
-		Call TheCall(phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, itsTimeout);
+		Call TheCall(phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, itsTimeout, false, false, std::stoul(getServerId()));
+		ParsedCall parsedCall = saveCallToDB(TheCall);
+		TheCall.SetId(parsedCall.id);
 		itsCalls.push_back(TheCall);
 	}
 
@@ -319,13 +324,13 @@ public:
 
 	void CallAll()
 	{
-
+		std::cout << "CalAll SIZE: " << itsCalls.size() << std::endl;
 		for (unsigned int i = 0; i < itsCalls.size(); i++)
 		{
 			if (!itsCalls.at(i).HasBeenCalled())
 			{
 				try
-				{
+				{					
 					itsCalls.at(i).SetCalled(true);
 					itsCalls.at(i).DoCall();					
 				}
@@ -372,9 +377,7 @@ private:
 		{
 			Call call(dbCall.phone, dbCall.campaign, dbCall.leadid, dbCall.callerid,
 					  dbCall.usecloser, dbCall.dspmode, dbCall.trunk, dbCall.dialprefix,
-					  dbCall.transfer, dbCall.timeout);
-			call.SetCalled(dbCall.called);
-			call.SetAnswered(dbCall.answered);
+					  dbCall.transfer, dbCall.timeout, dbCall.called, dbCall.answered, dbCall.server_id);
 			itsCalls.push_back(call);
 		}
 	}
