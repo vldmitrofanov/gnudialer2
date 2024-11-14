@@ -7,7 +7,7 @@
 struct ParsedCall
 {
     std::string id;
-    std::string number;
+    std::string phone;
     std::string campaign;
     u_long leadid;
     std::string callerid;

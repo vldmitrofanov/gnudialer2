@@ -224,7 +224,7 @@ private:
 	{
 		ParsedCall parsedCall;
 		parsedCall.id = this->GetId();
-		parsedCall.number = this->GetNumber();
+		parsedCall.phone = this->GetNumber();
 		parsedCall.campaign = this->GetCampaign();
 		parsedCall.leadid = this->GetLeadId();
 		parsedCall.callerid = this->GetCallerId();
@@ -337,7 +337,7 @@ private:
 	{
 		ParsedCall parsedCall;
 		parsedCall.id = call.GetId();
-		parsedCall.number = call.GetNumber();
+		parsedCall.phone = call.GetNumber();
 		parsedCall.campaign = call.GetCampaign();
 		parsedCall.leadid = call.GetLeadId();
 		parsedCall.callerid = call.GetCallerId();
@@ -363,7 +363,7 @@ private:
 
 		for (const auto &dbCall : calls)
 		{
-			Call call(dbCall.number, dbCall.campaign, dbCall.leadid, dbCall.callerid,
+			Call call(dbCall.phone, dbCall.campaign, dbCall.leadid, dbCall.callerid,
 					  dbCall.usecloser, dbCall.dspmode, dbCall.trunk, dbCall.dialprefix,
 					  dbCall.transfer, dbCall.timeout);
 			call.SetCalled(dbCall.called);

@@ -571,7 +571,7 @@ std::vector<ParsedCall> DBConnection::fetchAllCalls(u_long serverId)
         while (res->next())
         {
             ParsedCall parsedCall{
-                .number = res->getString("phone"),
+                .phone = res->getString("phone"),
                 .campaign = res->getString("campaign"),
                 .leadid = res->getUInt64("leadid"),
                 .callerid = res->getString("callerid"),
@@ -607,12 +607,12 @@ ParsedCall DBConnection::insertCall(const ParsedCall &call) {
         // Prepare the INSERT statement
         std::shared_ptr<sql::PreparedStatement> pstmt(
             conn->prepareStatement(
-                "INSERT INTO placed_calls (number, campaign, leadid, callerid, usecloser, dspmode, "
+                "INSERT INTO placed_calls (phone, campaign, leadid, callerid, usecloser, dspmode, "
                 "trunk, dialprefix, transfer, timeout, server_id, called, answered) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
 
         // Bind values to the prepared statement
-        pstmt->setString(1, call.number);
+        pstmt->setString(1, call.phone);
         pstmt->setString(2, call.campaign);
         pstmt->setUInt64(3, call.leadid);
         pstmt->setString(4, call.callerid);
