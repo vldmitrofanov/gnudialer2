@@ -666,6 +666,7 @@ std::vector<std::pair<std::string, std::string>> DBConnection::selectLeads(const
 
 bool DBConnection::executeUpdate(const std::string &query)
 {
+    std::cout << "[DBConnection::executeUpdate] " << query << std::endl;
     try
     {
         std::shared_ptr<sql::PreparedStatement> pstmt(
@@ -676,7 +677,7 @@ bool DBConnection::executeUpdate(const std::string &query)
     }
     catch (sql::SQLException &e)
     {
-        std::cerr << "SQL error: " << e.what() << std::endl;
+        std::cerr << "SQL error on executeUpdate: " << e.what() << std::endl;
         return false;
     }
 }
