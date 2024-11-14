@@ -420,9 +420,12 @@ ParsedQueueOperations DBConnection::fetchAbnStats(const std::string &queueName, 
             std::string updatedAtStr = res->getString("updated_at");
             std::tm tm = {};
             std::istringstream ss(updatedAtStr);
-            if (!(ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S"))) {
+            if (!(ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S")))
+            {
                 std::cerr << "Failed to parse updated_at: " << updatedAtStr << std::endl;
-            } else {
+            }
+            else
+            {
                 result.updated_at = std::mktime(&tm);
             }
 
@@ -471,8 +474,6 @@ ParsedQueueOperations DBConnection::fetchAbnStats(const std::string &queueName, 
 
             // You may want to retrieve the inserted row for `result` if needed
         }
-      
-        
     }
     catch (sql::SQLException &e)
     {
@@ -487,8 +488,6 @@ bool DBConnection::updateAbnStats(const std::string &queueName, u_long serverId,
 {
     try
     {
-
-        // Prepare the SQL update statement
         std::shared_ptr<sql::PreparedStatement> pstmt(
             conn->prepareStatement(
                 "UPDATE queue_operations "
@@ -499,15 +498,15 @@ bool DBConnection::updateAbnStats(const std::string &queueName, u_long serverId,
                 "ansmachs = ?, updated_at = NOW() "
                 "WHERE campaigns.code = ? AND queues.server_id = ?"));
 
-        pstmt->setInt(1, queueOperations.calls);
-        pstmt->setInt(2, queueOperations.totalcalls);
-        pstmt->setInt(3, queueOperations.abandons);
-        pstmt->setInt(4, queueOperations.totalabandons);
-        pstmt->setInt(5, queueOperations.disconnects);
-        pstmt->setInt(6, queueOperations.noanswers);
-        pstmt->setInt(7, queueOperations.busies);
-        pstmt->setInt(8, queueOperations.congestions);
-        pstmt->setInt(9, queueOperations.ansmachs);
+        pstmt->setInt(1, queueOperations.calls ? queueOperations.calls : 0);
+        pstmt->setInt(2, queueOperations.totalcalls ? queueOperations.totalcalls : 0);
+        pstmt->setInt(3, queueOperations.abandons ? queueOperations.abandons : 0);
+        pstmt->setInt(4, queueOperations.totalabandons ? queueOperations.totalabandons : 0);
+        pstmt->setInt(5, queueOperations.disconnects ? queueOperations.disconnects : 0);
+        pstmt->setInt(6, queueOperations.noanswers ? queueOperations.noanswers : 0);
+        pstmt->setInt(7, queueOperations.busies ? queueOperations.busies : 0);
+        pstmt->setInt(8, queueOperations.congestions ? queueOperations.congestions : 0);
+        pstmt->setInt(9, queueOperations.ansmachs ? queueOperations.ansmachs : 0);
         pstmt->setString(10, queueName);
         pstmt->setUInt64(11, serverId);
 
