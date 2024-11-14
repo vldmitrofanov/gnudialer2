@@ -107,7 +107,7 @@ int main(int argc, char **argv)
     signal(SIGSEGV, sig_handler);
 
     // set default console color to white on black
-    //if (doColorize)
+    // if (doColorize)
     //{
     //    std::cout << fg_light_white << std::endl;
     //}
@@ -406,27 +406,27 @@ int main(int argc, char **argv)
                     {
                         {
                             query += lead.first;
-                            if (line)
+                            if (line>0 && line<counter-1)
                             {
                                 query += ", ";
                             }
                             TheCallCache->AddCall(lead.second, queueName, lead.first, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout);
                         }
+                    }
+                    query += ")";
+                    if (counter < linestodial)
+                    {
+                        std::cerr << queueName << " is running very low on leads!" << std::endl;
+                    }
 
-                        if (counter < linestodial)
+                    if (counter)
+                    {
+                        TheQueues.rWhere(queueName).AddCallsDialed(counter);
+                        TheQueues.rWhere(queueName).WriteCalls();
+                        if (!dbConn.executeUpdate(query))
                         {
-                            std::cerr << queueName << " is running very low on leads!" << std::endl;
-                        }
-
-                        if (counter)
-                        {
-                            TheQueues.rWhere(queueName).AddCallsDialed(counter);
-                            TheQueues.rWhere(queueName).WriteCalls();
-                            if (!dbConn.executeUpdate(query))
-                            {
-                                std::cerr << "Error updating leads in mysql!" << std::endl;
-                                return 1;
-                            }
+                            std::cerr << "Error updating leads in mysql!" << std::endl;
+                            return 1;
                         }
                     }
                 }
