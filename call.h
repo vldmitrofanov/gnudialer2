@@ -19,6 +19,8 @@
 #include <signal.h>
 #include <vector>
 #include <curl/curl.h>
+#include "DBConnection.h"
+#include "ParsedCall.h"
 #include "exceptions.h"
 #include "Socket.h"
 #include "itos.h"
@@ -65,7 +67,7 @@ public:
 		itsTimeout = timeout;
 		called = false;
 		answered = false;
-		serverId = getServerId();
+		itsServerId = std::stoul(getServerId());
 
 		timeval tv;
 		gettimeofday(&tv, NULL);
@@ -83,7 +85,7 @@ public:
 	const std::string &GetTransfer() const { return itsTransfer; }
 	const unsigned long int &GetTime() const { return itsTime; }
 	const unsigned short int &GetTimeout() const { return itsTimeout; }
-
+	const u_long &GetServerId() const { return itsServerId; }
 	const bool &HasBeenCalled() const { return called; }
 	const bool &HasBeenAnswered() const { return answered; }
 
@@ -195,7 +197,7 @@ private:
 	std::string itsNumber, itsCampaign, itsLeadId, itsCallerId, itsUseCloser, itsDSPMode, itsTrunk, itsDialPrefix, itsTransfer;
 	unsigned long int itsTime;
 	unsigned short int itsTimeout;
-	u_long serverId;
+	u_long itsServerId;
 	bool called, answered;
 };
 
@@ -203,8 +205,9 @@ class CallCache
 {
 
 public:
-	CallCache(std::string &campaign) {
-		loadCallsFromDB(campaign);
+	CallCache()
+	{
+		loadCallsFromDB();
 	}
 	~CallCache() {}
 
@@ -243,7 +246,7 @@ public:
 		}
 	}
 
-	unsigned int LinesDialing(const std::string &campaign)
+	unsigned int LinesDialing_OBSOLETE(const std::string &campaign)
 	{
 
 		workingCampaign = campaign;
@@ -261,22 +264,11 @@ public:
 		return std::count_if(itsCalls.begin(), itsCalls.end(), countCallsForCampaign);
 	}
 
-	unsigned int LinesDialing_OBSOLETE(const std::string &campaign)
+	unsigned int LinesDialing(const std::string &campaign)
 	{
-
-		workingCampaign = campaign;
-
-		timeval tv;
-		gettimeofday(&tv, NULL);
-
-		for (unsigned long int cur = tv.tv_sec % 1000000; itsCalls.size() && cur - itsCalls.front().GetTime() >
-																				 itsCalls.front().GetTimeout() / 1000;)
-		{
-
-			itsCalls.pop_front();
-		}
-
-		return std::count_if(itsCalls.begin(), itsCalls.end(), countCallsForCampaign);
+		DBConnection dbConn;
+		u_long serverId = std::stoul(getServerId());
+		return dbConn.getLinesDialing(campaign, serverId);
 	}
 
 	void CallAll()
@@ -300,30 +292,57 @@ public:
 
 private:
 	std::deque<Call> itsCalls;
-	 
-	 void loadCallsFromDB(std::string &campaign) {
-        u_long serverId = std::stoul(getServerId());
-        DBConnection dbConn;
+
+	ParsedCall convertToParsedCall(const Call &call)
+	{
+		return ParsedCall{
+			call.GetNumber(),
+			call.GetCampaign(),
+			call.GetLeadId(),
+			call.GetCallerId(),
+			call.GetUseCloser(),
+			call.GetDSPMode(),
+			call.GetTrunk(),
+			call.GetDialPrefix(),
+			call.GetTransfer(),
+			call.GetTimeout(),
+			call.GetServerId(),  // Assuming `GetApiId()` exists in Call for the API ID
+			call.HasBeenCalled(),  // Assuming `IsCalled()` exists in Call
+			call.HasBeenAnswered() // Assuming `IsAnswered()` exists in Call
+		};
+	}
+
+	void loadCallsFromDB()
+	{
+		u_long serverId = std::stoul(getServerId());
+		DBConnection dbConn;
 		itsCalls.clear();
-        auto calls = dbConn.fetchAllCalls(campaign, serverId);
+		auto calls = dbConn.fetchAllCalls(serverId);
 
-        for (const auto &dbCall : calls) {
-            Call call(dbCall.GetNumber(), dbCall.GetCampaign(), dbCall.GetLeadId(), dbCall.GetCallerId(),
-                      dbCall.GetUseCloser(), dbCall.GetDSPMode(), dbCall.GetTrunk(), dbCall.GetDialPrefix(),
-                      dbCall.GetTransfer(), dbCall.GetTimeout());
-            itsCalls.push_back(call);
-        }
-    }
+		for (const auto &dbCall : calls)
+		{
+			Call call(dbCall.number, dbCall.campaign, dbCall.leadid, dbCall.callerid,
+					  dbCall.usecloser, dbCall.dspmode, dbCall.trunk, dbCall.dialprefix,
+					  dbCall.transfer, dbCall.timeout);
+			call.SetCalled(dbCall.called);
+			call.SetAnswered(dbCall.answered);
+			itsCalls.push_back(call);
+		}
+	}
 
-    void saveCallToDB(const Call &call) {
-        DBConnection dbConn;
-        dbConn.insertCall(call);
-    }
+	void saveCallToDB(const Call &call)
+	{
+		DBConnection dbConn;
+		ParsedCall parsedCall = convertToParsedCall(call); // Convert Call to ParsedCall
+		dbConn.insertCall(parsedCall);
+	}
 
-    void updateCallInDB(const Call &call) {
-        DBConnection dbConn;
-        dbConn.updateCall(call);
-    }
+	void updateCallInDB(const Call &call)
+	{
+		DBConnection dbConn;
+		ParsedCall parsedCall = convertToParsedCall(call); // Convert Call to ParsedCall
+		dbConn.updateCall(parsedCall);
+	}
 };
 
 bool countCallsForCampaign(const Call &TheCall)

@@ -146,9 +146,9 @@ public:
 		queueOperations.busies = std::stoi(busies);
 		queueOperations.congestions = std::stoi(congestions);
 		queueOperations.ansmachs = std::stoi(ansmachs);
-
+		ulong serverId = std::stoul(getServerId());
 		// Attempt to write to the database
-		if (!dbConn.updateAbnStats(name, queueOperations))
+		if (!dbConn.updateAbnStats(name, serverId, queueOperations))
 		{
 			std::cerr << "Error updating abandon stats in the database!" << std::endl;
 		}

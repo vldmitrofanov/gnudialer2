@@ -9,6 +9,9 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 #include "Campaign.h"
 #include "etcinfo.h"
 #include "ParsedAgent.h"
@@ -369,9 +372,9 @@ u_long DBConnection::getConfBridgeIdForAgent(u_long agentId, u_long serverId)
     return 0; // return 0 if not found
 }
 
-ParsedQueueOperations DBConnection::fetchAbnStats(const std::string &queueName, u_long serverId, int resetHours = 3)
+ParsedQueueOperations DBConnection::fetchAbnStats(const std::string &queueName, u_long serverId, int resetHours)
 {
-    ParsedQueueOperations result = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    ParsedQueueOperations result = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, std::time_t(0)};
     try
     {
         std::shared_ptr<sql::PreparedStatement> pstmt(
@@ -396,6 +399,7 @@ ParsedQueueOperations DBConnection::fetchAbnStats(const std::string &queueName, 
                 "WHERE campaigns.code = ? AND queues.server_id = ?"));
         pstmt->setString(1, queueName);
         pstmt->setUInt64(2, serverId);
+
         std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
 
         if (res->next())
@@ -413,15 +417,19 @@ ParsedQueueOperations DBConnection::fetchAbnStats(const std::string &queueName, 
             result.lines_dialing = res->getInt("lines_dialing");
             result.queue_id = res->getUInt64("queue_id");
 
-            // Check if `updated_at` is too old
             std::string updatedAtStr = res->getString("updated_at");
-            struct tm updatedAt = {};
-            strptime(updatedAtStr.c_str(), "%Y-%m-%d %H:%M:%S", &updatedAt);
-            time_t updatedAtTime = mktime(&updatedAt);
+            std::tm tm = {};
+            std::istringstream ss(updatedAtStr);
+            if (!(ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S"))) {
+                std::cerr << "Failed to parse updated_at: " << updatedAtStr << std::endl;
+            } else {
+                result.updated_at = std::mktime(&tm);
+            }
 
             time_t now = time(nullptr);
-            double hoursDiff = std::difftime(now, updatedAtTime) / 3600;
+            double hoursDiff = std::difftime(now, result.updated_at) / 3600.0;
 
+            // Check if `updated_at` is too old
             if (hoursDiff >= resetHours)
             {
                 // Reset values and update database
@@ -463,6 +471,8 @@ ParsedQueueOperations DBConnection::fetchAbnStats(const std::string &queueName, 
 
             // You may want to retrieve the inserted row for `result` if needed
         }
+      
+        
     }
     catch (sql::SQLException &e)
     {
@@ -470,6 +480,7 @@ ParsedQueueOperations DBConnection::fetchAbnStats(const std::string &queueName, 
         std::cerr << "MySQL error code: " << e.getErrorCode() << std::endl;
         std::cerr << "SQLState: " << e.getSQLState() << std::endl;
     }
+    return result;
 }
 
 bool DBConnection::updateAbnStats(const std::string &queueName, u_long serverId, const ParsedQueueOperations &queueOperations)
@@ -543,57 +554,60 @@ int DBConnection::getAvailableAgentBridges(const std::string &queueName, u_long 
     }
 }
 
-std::vector<Call> DBConnection::fetchAllCalls(const std::string &queueName, u_long serverId)
+std::vector<ParsedCall> DBConnection::fetchAllCalls(u_long serverId)
 {
-    std::vector<Call> calls;
-    try {
+    std::vector<ParsedCall> calls;
+    try
+    {
         // Prepare the SQL statement
         std::shared_ptr<sql::PreparedStatement> pstmt(
             conn->prepareStatement("SELECT phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout_sec, api_id, called, answered "
-                                   "FROM placed_calls WHERE campaign = ? AND server_id = ?")
-        );
-        pstmt->setString(1, queueName);
-        pstmt->setUInt64(2, serverId);
+                                   "FROM placed_calls WHERE server_id = ?"));
+        pstmt->setUInt64(1, serverId);
 
         // Execute the query
         std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
 
         // Loop through the result set and create Call objects
-        while (res->next()) {
-            // Extract each field value from the result set
-            std::string phone = res->getString("phone");
-            std::string campaign = res->getString("campaign");
-            std::string leadid = res->getString("leadid");
-            std::string callerid = res->getString("callerid");
-            std::string usecloser = res->getBoolean("usecloser") ? "true" : "false";  // Converting boolean to string if needed
-            std::string dspmode = res->getString("dspmode");
-            std::string trunk = res->getString("trunk");
-            std::string dialprefix = res->getString("dialprefix");
-            std::string transfer = res->getString("transfer");
-            unsigned short int timeout_sec = res->getUInt("timeout_sec");
-            std::string api_id = res->getString("api_id");
-            bool called = res->getBoolean("called");
-            bool answered = res->getBoolean("answered");
+        while (res->next())
+        {
+            ParsedCall parsedCall{
+                .number = res->getString("phone"),
+                .campaign = res->getString("campaign"),
+                .leadid = res->getString("leadid"),
+                .callerid = res->getString("callerid"),
+                .usecloser = res->getBoolean("usecloser") ? "true" : "false",
+                .dspmode = res->getString("dspmode"),
+                .trunk = res->getString("trunk"),
+                .dialprefix = res->getString("dialprefix"),
+                .transfer = res->getString("transfer"),
+                .timeout = static_cast<unsigned short int>(res->getUInt("timeout_sec")),
+                .server_id = res->getUInt64("server_id"),
+                .called = res->getBoolean("called"),
+                .answered = res->getBoolean("answered")};
+            calls.push_back(parsedCall);
 
             // Create a Call object and add it to the vector
-            Call call(phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout_sec);
-            call.SetCalled(called);      // Assuming Call has a method to set 'called'
-            call.SetAnswered(answered);  // Assuming Call has a method to set 'answered'
-            calls.push_back(call);
+            // Call call(phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout_sec);
+            // call.SetCalled(called);     // Assuming Call has a method to set 'called'
+            // call.SetAnswered(answered); // Assuming Call has a method to set 'answered'
+            // calls.push_back(call);
         }
-    } catch (sql::SQLException &e) {
+    }
+    catch (sql::SQLException &e)
+    {
         std::cerr << "SQL error: " << e.what() << std::endl;
     }
 
     return calls;
 }
 
-void DBConnection::insertCall(const Call &call)
+void DBConnection::insertCall(const ParsedCall &call)
 {
     // Database logic to insert a new call
 }
 
-void DBConnection::updateCall(const Call &call)
+void DBConnection::updateCall(const ParsedCall &call)
 {
     // Database logic to update an existing call's status or data
 }
@@ -622,5 +636,48 @@ int DBConnection::getLinesDialing(const std::string &queueName, u_long serverId)
     {
         std::cerr << "SQL error: " << e.what() << std::endl;
         return -1; // Return -1 or another error code to i
+    }
+}
+
+std::vector<std::pair<std::string, std::string>> DBConnection::selectLeads(const std::string &query)
+{
+    std::vector<std::pair<std::string, std::string>> leads;
+    try
+    {
+        std::shared_ptr<sql::PreparedStatement> pstmt(
+            conn->prepareStatement(query));
+        std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+
+        // Process each row in the result set
+        while (res->next())
+        {
+            std::string id = res->getString("id");
+            std::string phone = res->getString("phone");
+            leads.emplace_back(id, phone);
+        }
+    }
+    catch (sql::SQLException &e)
+    {
+        std::cerr << "Error selecting leads from mysql! Did you run --tzpopulate?" << std::endl;
+        std::cerr << "SQL error: " << e.what() << std::endl;
+    }
+
+    return leads;
+}
+
+bool DBConnection::executeUpdate(const std::string &query)
+{
+    try
+    {
+        std::shared_ptr<sql::PreparedStatement> pstmt(
+            conn->prepareStatement(query));
+
+        int affectedRows = pstmt->executeUpdate(); // For non-SELECT queries
+        return affectedRows > 0;
+    }
+    catch (sql::SQLException &e)
+    {
+        std::cerr << "SQL error: " << e.what() << std::endl;
+        return false;
     }
 }

@@ -17,5 +17,6 @@ struct ParsedQueueOperations {
     int ansmachs;
 	int lines_dialing;
     u_long queue_id;
+    std::time_t updated_at;
 };
 #endif

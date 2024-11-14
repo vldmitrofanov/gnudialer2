@@ -16,17 +16,20 @@
 #include <mysql.h>
 #include <cstdlib>
 #include <nlohmann/json.hpp>
+#include "HttpClient.h"
+#include "ConfigSingleton.h"
+#include "DBConnection.h"
 #include "Socket.h"
 // #include "asterisk.h"
+#include "ParsedConfBridge.h"
 #include "evaluate.h"
 #include "etcinfo.h"
 #include "color.h"
 #include "queue.h"
 #include "call.h"
 #include "log.h"
-#include "HttpClient.h"
-#include "ConfigSingleton.h"
-#include "ParsedConfBridge.h"
+#include "isholiday.h"
+#include "tzfilter.h"
 
 #define CRASH                                                          \
     do                                                                 \
@@ -99,17 +102,15 @@ int main(int argc, char **argv)
     usleep(100000);
     safeMode = false;
     bool daemonMode = true;
-    MYSQL_RES *queryResult;
-    MYSQL_ROW queryRow;
 
     signal(SIGCHLD, sig_handler);
     signal(SIGSEGV, sig_handler);
 
     // set default console color to white on black
-    if (doColorize)
-    {
-        std::cout << fg_light_white << std::endl;
-    }
+    //if (doColorize)
+    //{
+    //    std::cout << fg_light_white << std::endl;
+    //}
 
     for (int i = 1; i < argc; ++i)
     {
@@ -133,6 +134,18 @@ int main(int argc, char **argv)
         }
     }
 
+    // TODO: Move this into loop
+    bool isAHoliday;
+    try
+    {
+        isAHoliday = isHoliday();
+    }
+    catch (const xFileOpenError &e)
+    {
+        std::cerr << "GnuDialer: Exception! Unable to open " << e.GetFilename() << "!" << std::endl;
+        return 1;
+    }
+
     // main loop
     while (true)
     {
@@ -142,7 +155,7 @@ int main(int argc, char **argv)
         TheQueues.ParseQueues();
         for (const Queue &queue : TheQueues)
         {
-            std::string response, block, queue, mode, calltoday, usednc, query, tzearliest, tzlatest, callerid, channel;
+            std::string response, block, queueName, mode, calltoday, usednc, query, tzearliest, tzlatest, callerid, channel;
             std::string tempagent, usecloser, closercam;
             std::string dspmode, trunk, dialprefix, transfer, filter, usecallback, usetzfilter;
             bool debug;
@@ -153,30 +166,40 @@ int main(int argc, char **argv)
             int pid = 0;
             double maxratio = 0.0, maxabandons = 0.0;
             queue.DisplayInfo();
-            std::string queueName = queue.GetName();
-            CallCache *TheCallCache = new CallCache(queueName);
-            maxratio = queue.GetSetting("maxratio").GetFloat();
-            maxlines = queue.GetSetting("maxlines").GetInt();
-            maxabandons = queue.GetSetting("maxabandons").GetFloat();
-            mode = queue.GetSetting("function").Get();
-            calltoday = queue.GetSetting("calltoday").Get();
-            usednc = queue.GetSetting("usednc").Get();
-            callerid = queue.GetSetting("callerid").Get();
-            filter = queue.GetSetting("filter").Get();
-            timeout = queue.GetSetting("timeout").GetInt();
-            usecloser = queue.GetSetting("usecloser").Get();
-            closercam = queue.GetSetting("closercam").Get();
-            dspmode = queue.GetSetting("dspmode").Get();
-            trunk = queue.GetSetting("trunk").Get();
-            dialprefix = queue.GetSetting("dialprefix").Get();
-            usecallback = queue.GetSetting("usecallback").Get();
-            usetzfilter = queue.GetSetting("usetzfilter").Get();
-            debug = queue.GetSetting("debug").GetBool();
-            skip = queue.GetSetting("skip").GetInt();
-            f_areacode = queue.GetSetting("f_areacode").Get();
-            f_areacode_prefix = queue.GetSetting("f_areacode_prefix").Get();
-            f_zipcode = queue.GetSetting("f_zipcode").Get();
-            orderby = queue.GetSetting("orderby").Get();
+            queueName = queue.GetName();
+            if (queue.GetSettingByName("active").Get() != "true")
+            {
+                std::cout << "Skipping inactive campaign " << queueName << std::endl;
+                continue;
+            }
+            if (queueName == "CLOSER")
+            {
+                std::cout << "Skipping closer campaign " << queueName << std::endl;
+                continue;
+            }
+            CallCache *TheCallCache = new CallCache();
+            maxratio = queue.GetSettingByName("maxratio").GetFloat();
+            maxlines = queue.GetSettingByName("maxlines").GetInt();
+            maxabandons = queue.GetSettingByName("maxabandons").GetFloat();
+            mode = queue.GetSettingByName("function").Get();
+            calltoday = queue.GetSettingByName("calltoday").Get();
+            usednc = queue.GetSettingByName("usednc").Get();
+            callerid = queue.GetSettingByName("callerid").Get();
+            filter = queue.GetSettingByName("filter").Get();
+            timeout = queue.GetSettingByName("timeout").GetInt();
+            usecloser = queue.GetSettingByName("usecloser").Get();
+            closercam = queue.GetSettingByName("closercam").Get();
+            dspmode = queue.GetSettingByName("dspmode").Get();
+            trunk = queue.GetSettingByName("trunk").Get();
+            dialprefix = queue.GetSettingByName("dialprefix").Get();
+            usecallback = queue.GetSettingByName("usecallback").Get();
+            usetzfilter = queue.GetSettingByName("usetzfilter").Get();
+            debug = queue.GetSettingByName("debug").GetBool();
+            skip = queue.GetSettingByName("skip").GetInt();
+            f_areacode = queue.GetSettingByName("f_areacode").Get();
+            f_areacode_prefix = queue.GetSettingByName("f_areacode_prefix").Get();
+            f_zipcode = queue.GetSettingByName("f_zipcode").Get();
+            orderby = queue.GetSettingByName("orderby").Get();
 
             calls = atoi(queue.GetCalls().c_str());
             abandons = atoi(queue.GetAbandons().c_str());
@@ -250,9 +273,9 @@ int main(int argc, char **argv)
                 for (int x = 0; x < queue.OccurencesOf("filters"); x++)
                 {
                     std::string fnum, fstring, enabled;
-                    fnum = queue.GetSetting(x, "filters").GetAttribute("number");
-                    fstring = queue.GetSetting(x, "filters").GetAttribute("string");
-                    enabled = queue.GetSetting(x, "filters").GetAttribute("enable");
+                    fnum = queue.GetSettingByIndexAndName(x, "filters").GetAttribute("number");
+                    fstring = queue.GetSettingByIndexAndName(x, "filters").GetAttribute("string");
+                    enabled = queue.GetSettingByIndexAndName(x, "filters").GetAttribute("enable");
                     if (enabled == "true")
                     {
                         if (debug)
@@ -292,8 +315,8 @@ int main(int argc, char **argv)
 
                 if (usetzfilter == "true")
                 {
-                    tzearliest = queue.GetSetting("tzearliest").Get();
-                    tzlatest = queue.GetSetting("tzlatest").Get();
+                    tzearliest = queue.GetSettingByName("tzearliest").Get();
+                    tzlatest = queue.GetSettingByName("tzlatest").Get();
 
                     query += " AND " + getFilter(tzearliest, tzlatest, isAHoliday);
 
@@ -359,63 +382,57 @@ int main(int argc, char **argv)
                 {
                     std::cout << queueName << ": Dialing " << linestodial << " calls (" << skip << ") skipped" << std::endl;
                 }
-                if (mysql_query(mysql, query.c_str()) != 0)
+                DBConnection dbConn;
+                std::vector<std::pair<std::string, std::string>> leads = dbConn.selectLeads(query);
+                if (leads.empty())
                 {
-                    std::cerr << "Error selecting leads from mysql! Did you run --tzpopulate?" << std::endl;
-                    // return 1;
+                    if (doColorize)
+                    {
+                        std::cout << queueName << fg_light_red << "has ran out of leads! (CHECK YOUR FILTERS!!!)" << normal << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << queueName << ": has ran out of leads! (CHECK YOUR FILTERS!!!)" << std::endl;
+                    }
                     usleep(10000);
                 }
                 else
                 {
-
-                    result = mysql_use_result(mysql);
-                    query = "UPDATE campaign_" + queueName + " SET attempts=attempts+1 WHERE ";
-                    for (counter = 0; (row = mysql_fetch_row(result)); counter++)
+                    // Updating selected leads
+                    query = "UPDATE campaign_" + queueName + " SET attempts=attempts+1 WHERE id IN(";
+                    counter = leads.size();
+                    int line = 0;
+                    for (const auto &lead : leads)
                     {
+                        {
+                            query += lead.first;
+                            if (line)
+                            {
+                                query += ", ";
+                            }
+                            TheCallCache->AddCall(lead.second, queueName, lead.first, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout);
+                        }
+
+                        if (counter < linestodial)
+                        {
+                            std::cerr << queueName << " is running very low on leads!" << std::endl;
+                        }
+
                         if (counter)
                         {
-                            query += " OR ";
-                        }
-                        query += " id=" + std::string(row[0]);
-                        TheCallCache->AddCall(row[1], queueName, row[0], callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout);
-                    }
-
-                    if (mysql_errno(mysql))
-                    {
-                        std::cerr << "Error fetching rows from mysql!" << std::endl;
-                        return 1;
-                    }
-                    if (!counter)
-                    {
-                        if (doColorize)
-                        {
-                            std::cout << queueName << fg_light_red << ": has ran out of leads! (CHECK YOUR FILTERS!!!)" << normal << std::endl;
-                        }
-                        else
-                        {
-                            std::cout << queueName << ": has ran out of leads! (CHECK YOUR FILTERS!!!)" << std::endl;
-                        }
-                    }
-                    else if (counter < linestodial)
-                    {
-                        std::cerr << queueName << " is running very low on leads!" << std::endl;
-                    }
-
-                    mysql_free_result(result);
-                    if (counter)
-                    {
-                        TheQueues.rWhere(queue).AddCallsDialed(counter);
-                        TheQueues.rWhere(queue).WriteCalls();
-                        if (mysql_query(mysql, query.c_str()) != 0)
-                        {
-                            std::cerr << "Error updating leads in mysql!" << std::endl;
-                            return 1;
+                            TheQueues.rWhere(queueName).AddCallsDialed(counter);
+                            TheQueues.rWhere(queueName).WriteCalls();
+                            if (!dbConn.executeUpdate(query))
+                            {
+                                std::cerr << "Error updating leads in mysql!" << std::endl;
+                                return 1;
+                            }
                         }
                     }
                 }
             }
         }
-        //
+
         usleep(100000);
     }
 }

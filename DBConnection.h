@@ -11,7 +11,7 @@
 #include <vector>
 #include <stdexcept>
 #include "Campaign.h"
-#include "call.h"
+#include "ParsedCall.h"
 #include "ParsedAgent.h"
 #include "ParsedConfBridge.h"
 #include "ParsedQueueOperations.h"
@@ -36,10 +36,12 @@ public:
     ParsedQueueOperations fetchAbnStats(const std::string &queueName, u_long serverId, int resetHours = 3);
     bool updateAbnStats(const std::string &queueName, u_long serverId, const ParsedQueueOperations &queueOperations);
     int getAvailableAgentBridges(const std::string &queueName, u_long serverId);
-    std::vector<Call> fetchAllCalls(const std::string &queueName, u_long serverId);
-    void insertCall(const Call &call);
-    void updateCall(const Call &call);
+    std::vector<ParsedCall> fetchAllCalls(u_long serverId);
+    void insertCall(const ParsedCall &call);
+    void updateCall(const ParsedCall &call);
     int getLinesDialing(const std::string &queueName, u_long serverId);
+    std::vector<std::pair<std::string, std::string>> selectLeads(const std::string &query);
+    bool executeUpdate(const std::string &query);
     std::shared_ptr<sql::PreparedStatement> prepareStatement(const std::string &query)
     {
         return std::shared_ptr<sql::PreparedStatement>(conn->prepareStatement(query));

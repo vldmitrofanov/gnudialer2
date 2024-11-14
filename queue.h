@@ -1,17 +1,3 @@
-/*
- * GnuDialer - Complete, free predictive dialer
- *
- * Complete, free predictive dialer for contact centers.
- *
- * Copyright (C) 2006, GnuDialer Project
- *
- * Heath Schultz <heath1444@yahoo.com>
- * Richard Lyman <richard@dynx.net>
- *
- * This program is free software, distributed under the terms of
- * the GNU General Public License.
- */
-
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -21,10 +7,11 @@
 #include <sstream>
 #include <unistd.h>
 #include <time.h>
+#include "DBConnection.h"
 #include "agent.h"
+#include "call.h"
 #include "abnhelper.h"
 #include "exceptions.h"
-#include "DBConnection.h"
 #include "Campaign.h"
 
 #ifndef QUEUE
@@ -63,10 +50,10 @@ public:
 	const std::string &GetType() const { return itsWords.at(0); }
 	const std::string &GetWord(int whichWord) const { return itsWords.at(whichWord + 1); }
 
-	std::string GetAttribute(const std::string &attribute)
+	std::string GetAttribute(const std::string &attribute) const
 	{
 
-		notFound = "Not Found";
+		const std::string notFound = "Not Found";
 		for (unsigned int i = 0; i < itsWords.size(); i++)
 		{
 			if (itsWords.at(i) == attribute)
@@ -206,7 +193,7 @@ public:
 	std::string GetWord(const std::string &type, int whichWord)
 	{
 
-		notFound = "Not Found";
+		const std::string notFound = "Not Found";
 
 		for (unsigned int i = 0; i < itsWords.size(); i++)
 		{
@@ -248,7 +235,6 @@ public:
 
 private:
 	std::vector<std::string> itsWords;
-	std::string notFound;
 };
 
 const Setting ReturnSetting(const std::string &rawSetting)
@@ -362,13 +348,13 @@ public:
 
 	void AddTalkTime(const long int &theTime)
 	{
-		SetSetting("talktime", itos(GetSetting("talktime").GetInt() + theTime));
+		SetSetting("talktime", itos(GetSettingByName("talktime").GetInt() + theTime));
 	}
 
 	int SettingCount() const { return itsSettings.size(); }
 	Setting GetSetting(int whichSetting) const { return itsSettings.at(whichSetting); }
 	// took const out after the func
-	Setting &GetSetting(const int &whichSetting, const std::string &type)
+	const Setting &GetSettingByIndexAndName(const int &whichSetting, const std::string &type) const
 	{
 
 		int occurence = 0;
@@ -505,7 +491,7 @@ public:
 		itsSettings = tempSettings;
 	}
 
-	const Setting &GetSetting(const std::string &type) { return GetSetting(0, type); }
+	const Setting &GetSettingByName(const std::string &type) const { return GetSettingByIndexAndName(0, type); }
 
 	int GetSettingNumber(const std::string &type) { return GetSettingNumber(0, type); }
 
@@ -678,7 +664,7 @@ public:
 
 		DBConnection dbConn;
 
-		availAgents = dbConn->getAvailableAgentBridges(itsName, serverId);
+		availAgents = dbConn.getAvailableAgentBridges(itsName, serverId);
 
 		return availAgents;
 	}
@@ -734,11 +720,11 @@ public:
 private:
 	u_long itsId;
 	std::string itsName;
-	std::vector<int> itsMembersNumbers;
+	std::vector<u_long> itsMembersNumbers;
 	std::vector<std::string> itsMembersNames, otherSettings;
 	std::vector<Setting> itsSettings;
 	bool changed;
-	// CallCache itsCalls;
+	CallCache itsCalls;
 	AbnHelper itsAbnHelper;
 	u_long serverId;
 };
