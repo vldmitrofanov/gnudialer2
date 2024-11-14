@@ -116,12 +116,16 @@ public:
 			CURLcode res;
 
 			curl = curl_easy_init();
-			std::string mainHost = getApiUrl();
+			std::string mainHost = getMainHost();
 			std::string itsUseCloserStr = itsUseCloser ? "true" : "false"; 
+			std::string ariUser = getAriUser();
+			std::string ariProto = getAriProto();
+			std::string ariPass = getAriPass();
+			std::string stasisApp = "gnudialer_stasis_app";
 			// std::cout << "ARI creds: " <<  TheAsterisk.GetAriHost() << ":" + TheAsterisk.GetAriPort() + " - " + TheAsterisk.GetAriUser() + ":" + TheAsterisk.GetAriPass() << std::endl;
 			if (curl)
 			{
-				std::string url = "http://" + mainHost + ":8000/ari/channels";
+				std::string url = ariProto + "://" + mainHost + ":8000/ari/channels?api_key="+ariUser + ":" + ariPass + "&app=" + stasisApp;
 				std::string dialPrefix = (itsDialPrefix == "none") ? "" : itsDialPrefix;
 				std::string finalNumber = dialPrefix + itsNumber;
 				std::cout << "TRUNK: " + itsTrunk << std::endl;
@@ -148,11 +152,11 @@ public:
 										 "&priority=1" +
 										 "&callerId=" + itsCampaign + "-" + std::to_string(itsLeadId) + "-" + itsUseCloserStr +
 										 "&timeout=" + itos(itsTimeout) +
-										 "&variables[__LEADID]=" + std::to_string(itsLeadId) +
-										 "&variables[__CAMPAIGN]=" + itsCampaign +
-										 "&variables[__DSPMODE]=" + itsDSPMode +
-										 "&variables[__ISTRANSFER]=" + itsTransfer +
-										 "&account=" + itsCampaign;
+										 "&variables[LEADID]=" + std::to_string(itsLeadId) +
+										 "&variables[CAMPAIGN]=" + itsCampaign +
+										 "&variables[DSPMODE]=" + itsDSPMode +
+										 "&variables[ISTRANSFER]=" + itsTransfer;
+										 
 				curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 				curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
 				curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postFields.c_str());
