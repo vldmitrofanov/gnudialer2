@@ -406,7 +406,7 @@ int main(int argc, char **argv)
                     {
                         std::cout << "ID (first) " << lead.first << " PHONE (second) " << lead.second << std::endl;
                         query += lead.first;
-                        if (line > 0 && line < counter)
+                        if (line < counter-1)
                         {
                             query += ", ";
                         }
