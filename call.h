@@ -125,7 +125,7 @@ public:
 			// std::cout << "ARI creds: " <<  TheAsterisk.GetAriHost() << ":" + TheAsterisk.GetAriPort() + " - " + TheAsterisk.GetAriUser() + ":" + TheAsterisk.GetAriPass() << std::endl;
 			if (curl)
 			{
-				std::string url = ariProto + "://" + mainHost + ":8000/ari/channels?api_key="+ariUser + ":" + ariPass + "&app=" + stasisApp;
+				std::string url = ariProto + "://" + mainHost + ":8088/ari/channels?api_key="+ariUser + ":" + ariPass + "&app=" + stasisApp;
 				std::string dialPrefix = (itsDialPrefix == "none") ? "" : itsDialPrefix;
 				std::string finalNumber = dialPrefix + itsNumber;
 				std::cout << "TRUNK: " + itsTrunk << std::endl;
@@ -156,7 +156,7 @@ public:
 										 "&variables[CAMPAIGN]=" + itsCampaign +
 										 "&variables[DSPMODE]=" + itsDSPMode +
 										 "&variables[ISTRANSFER]=" + itsTransfer;
-										 
+
 				curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 				curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
 				curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postFields.c_str());
