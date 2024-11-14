@@ -560,7 +560,7 @@ std::vector<ParsedCall> DBConnection::fetchAllCalls(u_long serverId)
     {
         // Prepare the SQL statement
         std::shared_ptr<sql::PreparedStatement> pstmt(
-            conn->prepareStatement("SELECT phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout, api_id, called, answered "
+            conn->prepareStatement("SELECT phone, campaign, leadid, callerid, usecloser, dspmode, trunk, dialprefix, transfer, timeout, server_id, called, answered "
                                    "FROM placed_calls WHERE server_id = ?"));
         pstmt->setUInt64(1, serverId);
 
@@ -676,7 +676,7 @@ int DBConnection::getLinesDialing(const std::string &queueName, u_long serverId)
     try
     {
         std::shared_ptr<sql::PreparedStatement> pstmt(
-            conn->prepareStatement("SELECT * FROM placed_calls WHERE called = true AND answered = true AND campaign = ? AND server_id = ?;"));
+            conn->prepareStatement("SELECT * FROM placed_calls WHERE called = true AND answered = true AND campaign = ? AND server_id = ?"));
         pstmt->setString(1, queueName);
         pstmt->setUInt64(2, serverId); // Setting the first parameter as serverId
         std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
