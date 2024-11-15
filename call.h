@@ -20,6 +20,7 @@
 #include <vector>
 #include <curl/curl.h>
 #include <string>
+#include <nlohmann/json.hpp>
 #include "DBConnection.h"
 #include "ParsedCall.h"
 #include "exceptions.h"
@@ -33,6 +34,7 @@
 const bool doColor = true;
 const std::string neon = "\033[1;32m"; // set foreground color to light green
 const std::string norm = "\033[0m";	   // reset to system
+using json = nlohmann::json;
 
 class Asterisk;
 
@@ -76,8 +78,8 @@ public:
 		timeval tv;
 		gettimeofday(&tv, NULL);
 		itsTime = tv.tv_sec % 1000000;
-		//ParsedCall parsedCall = this->saveCallToDB();
-		//this->SetId(parsedCall.id);
+		// ParsedCall parsedCall = this->saveCallToDB();
+		// this->SetId(parsedCall.id);
 	}
 	const std::string &GetId() const { return itsId; }
 	const std::string &GetNumber() const { return itsNumber; }
@@ -95,7 +97,7 @@ public:
 	const bool &HasBeenCalled() const { return called; }
 	const bool &HasBeenAnswered() const { return answered; }
 
-	void SetId(std::string& newId) { itsId = newId; }
+	void SetId(std::string &newId) { itsId = newId; }
 	void SetAnswered(bool v = true) { answered = v; }
 	void SetCalled(bool v) { called = v; }
 	// TODO move to ARI interface
@@ -120,7 +122,7 @@ public:
 
 			curl = curl_easy_init();
 			std::string mainHost = getMainHost();
-			std::string itsUseCloserStr = itsUseCloser ? "true" : "false"; 
+			std::string itsUseCloserStr = itsUseCloser ? "true" : "false";
 			std::string ariUser = getAriUser();
 			std::string ariProto = getAriProto();
 			std::string ariPass = getAriPass();
@@ -128,7 +130,7 @@ public:
 			// std::cout << "ARI creds: " <<  TheAsterisk.GetAriHost() << ":" + TheAsterisk.GetAriPort() + " - " + TheAsterisk.GetAriUser() + ":" + TheAsterisk.GetAriPass() << std::endl;
 			if (curl)
 			{
-				std::string url = ariProto + "://" + mainHost + ":8088/ari/channels?api_key="+ariUser + ":" + ariPass + "&app=" + stasisApp;
+				std::string url = ariProto + "://" + mainHost + ":8088/ari/channels?api_key=" + ariUser + ":" + ariPass + "&app=" + stasisApp;
 				std::string dialPrefix = (itsDialPrefix == "none") ? "" : itsDialPrefix;
 				std::string finalNumber = dialPrefix + itsNumber;
 				std::cout << "TRUNK: " + itsTrunk << std::endl;
@@ -148,7 +150,7 @@ public:
 				{
 					throw std::runtime_error("Placeholder _EXTEN_ not found in the trunk string. Trunk example: SIP/faketrunk/sip!_EXTEN_@127.0.0.1!5062");
 				}
-				
+				/*
 				std::string postFields = "endpoint=" + itsTrunk +
 										 "&extension=" + dialPrefix + itsNumber +
 										 "&context=" + (itsTransfer == "TRANSFER" ? "gdtransfer" : "gdstasis") +
@@ -159,12 +161,38 @@ public:
 										 "&variables[CAMPAIGN]=" + itsCampaign +
 										 "&variables[DSPMODE]=" + itsDSPMode +
 										 "&variables[ISTRANSFER]=" + itsTransfer;
+										 */
+				json variables = {
+					{"LEADID", std::to_string(itsLeadId)},
+					{"CAMPAIGN", itsCampaign},
+					{"DSPMODE", itsDSPMode},
+					{"ISTRANSFER", itsTransfer}};
+				json jsonPayload = {
+					{"endpoint", itsTrunk},
+					{"extension", dialPrefix + itsNumber},
+					{"context", (itsTransfer == "TRANSFER" ? "gdtransfer" : "gdstasis")},
+					{"priority", 1},
+					{"callerId", itsCampaign + "-" + std::to_string(itsLeadId)},
+					{"timeout", itsTimeout},
+					{"variables", variables}};
 
-				curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+				std::string jsonPostFields = jsonPayload.dump();
+
 				curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-				curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postFields.c_str());
-				curl_easy_setopt(curl, CURLOPT_USERNAME, getAriUser().c_str());
-				curl_easy_setopt(curl, CURLOPT_PASSWORD, getAriPass().c_str());
+				curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonPostFields.c_str());
+				curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, jsonPostFields.length());
+
+				// Add JSON header
+				struct curl_slist *headers = nullptr;
+				headers = curl_slist_append(headers, "Content-Type: application/json");
+				curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+				// Set up response handling
+				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, [](void *ptr, size_t size, size_t nmemb, std::string *data)
+								 {
+					data->append((char *)ptr, size * nmemb);
+					return size * nmemb; });
+				curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
 				// Perform the request, res will get the return code
 				res = curl_easy_perform(curl);
@@ -173,6 +201,7 @@ public:
 					std::string errorMessage = "curl_easy_perform() failed: " + std::string(curl_easy_strerror(res));
 					std::cerr << errorMessage << std::endl;
 					curl_easy_cleanup(curl);
+					curl_slist_free_all(headers);
 					throw std::runtime_error(errorMessage);
 				}
 				else
@@ -182,6 +211,7 @@ public:
 
 				// Cleanup
 				curl_easy_cleanup(curl);
+				curl_slist_free_all(headers);
 			}
 			if (doColor)
 			{
@@ -330,9 +360,9 @@ public:
 			if (!itsCalls.at(i).HasBeenCalled())
 			{
 				try
-				{					
+				{
 					itsCalls.at(i).SetCalled(true);
-					itsCalls.at(i).DoCall();					
+					itsCalls.at(i).DoCall();
 				}
 				catch (const xConnectionError &e)
 				{
