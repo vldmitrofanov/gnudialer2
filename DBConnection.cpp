@@ -531,7 +531,7 @@ int DBConnection::getAvailableAgentBridges(const std::string &queueName, u_long 
                 "LEFT JOIN queues ON agent_queue.queue_id = queues.id "
                 "LEFT JOIN campaigns ON queues.campaign_id = campaigns.id "
                 "WHERE campaigns.code = ? AND conf_bridges.server_id = ? "
-                "AND online = 1 AND available = 1 AND pause = 1"));
+                "AND online = 1 AND available = 1 AND pause = 0"));
         pstmt->setString(1, queueName);
         pstmt->setUInt64(2, serverId); // Setting the first parameter as serverId
         std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
