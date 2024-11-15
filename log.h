@@ -17,6 +17,11 @@
 #include <stdio.h>
 #include <mysql.h>
 #include <sys/stat.h>
+// Sorry these are some annoying warnings
+// TODO: Fix that instead!
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-truncation"
+#pragma GCC diagnostic ignored "-Wformat-overflow"
 
 void __writeCampaignLog(const std::string & thelogstring, const std::string & filename) {
 
@@ -315,5 +320,5 @@ void writeCampaignFilter(const std::string & campaign, const std::string & thefi
 
 //              writeCampaignFilter(campaign,thefilterstring);
 
-
+#pragma GCC diagnostic pop
 

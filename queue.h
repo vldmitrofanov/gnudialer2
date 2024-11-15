@@ -256,7 +256,7 @@ public:
 		std::cout << this->itsName << std::endl;
 	}
 	// bool ParseQueue(std::string name, AgentList TheAgents) {
-	bool ParseQueue(const std::string &name, u_long serverId)
+	bool ParseQueue(const std::string &name, u_long _serverId)
 	{
 		DBConnection dbConn;
 		itsName = name;
@@ -289,7 +289,7 @@ public:
 
 		std::ifstream QueueIn;
 
-		std::vector<std::string> settings = dbConn.getCampaignSettings(campaign.id, serverId);
+		std::vector<std::string> settings = dbConn.getCampaignSettings(campaign.id, _serverId);
 
 		for (const auto &setting : settings)
 		{
@@ -297,7 +297,7 @@ public:
 			itsSettings.push_back(ReturnSetting(setting));
 		}
 
-		std::vector<std::string> filters = dbConn.getCampaignFilters(campaign.id, serverId);
+		std::vector<std::string> filters = dbConn.getCampaignFilters(campaign.id, _serverId);
 
 		for (const auto &filter : filters)
 		{
@@ -305,7 +305,7 @@ public:
 			itsSettings.push_back(ReturnSetting(filter));
 		}
 
-		std::vector<u_long> agents = dbConn.getCampaignAgents(campaign.id, serverId);
+		std::vector<u_long> agents = dbConn.getCampaignAgents(campaign.id, _serverId);
 
 		for (const auto &agent : agents)
 		{
@@ -534,7 +534,7 @@ public:
 
 	bool HasMemberNumber(int whichMember) const
 	{
-		for (unsigned int i = 0; i < itsMembersNumbers.size(); i++)
+		for (long unsigned int i = 0; i < itsMembersNumbers.size(); i++)
 		{
 			if (itsMembersNumbers.at(i) == whichMember)
 			{
@@ -548,7 +548,7 @@ public:
 	{
 
 		std::cout << "[DEBUG}[dumpAllAgents] Member List: " << std::endl;
-		for (int i = 0; i < itsMembersNumbers.size(); i++)
+		for (long unsigned int i = 0; i < itsMembersNumbers.size(); i++)
 		{
 			std::cout << itsMembersNumbers.at(i) << std::endl;
 		}
@@ -617,8 +617,8 @@ public:
 	{
 		DBConnection dbConn;
 		std::string serverIdStr = getServerId();   // Assuming getServerId() returns std::string
-		u_long serverId = std::stoul(serverIdStr); // Convert the string to u_long
-		u_long queueId = dbConn.getQueueIdByCode(itsName, serverId);
+		u_long _serverId = std::stoul(serverIdStr); // Convert the string to u_long
+		u_long queueId = dbConn.getQueueIdByCode(itsName, _serverId);
 		if (queueId == 0)
 		{
 			std::cout << "queue.h Write: Campaign not found!" << std::endl;
@@ -658,13 +658,13 @@ public:
 	int GetAvailAgents() const
 	{
 
-		u_long serverId = std::stoul(getServerId());
+		u_long _serverId = std::stoul(getServerId());
 
 		int availAgents = 0;
 
 		DBConnection dbConn;
 
-		availAgents = dbConn.getAvailableAgentBridges(itsName, serverId);
+		availAgents = dbConn.getAvailableAgentBridges(itsName, _serverId);
 
 		return availAgents;
 	}

@@ -402,7 +402,7 @@ int main(int argc, char **argv)
                     // Updating selected leads
                     query = "UPDATE campaign_" + queueName + " SET attempts=attempts+1 WHERE id IN(";
                     counter = leads.size();
-                    int line = 0;
+                    unsigned int line = 0;
                     for (const auto &lead : leads)
                     {
                         std::cout << "ID (first) " << lead.first << " PHONE (second) " << lead.second << std::endl;
