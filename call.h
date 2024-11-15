@@ -151,7 +151,7 @@ public:
 				
 				std::string postFields = "endpoint=" + itsTrunk +
 										 "&extension=" + dialPrefix + itsNumber +
-										 "&context=" + (itsTransfer == "TRANSFER" ? "gdtransfer" : "gdincoming") +
+										 "&context=" + (itsTransfer == "TRANSFER" ? "gdtransfer" : "gdstasis") +
 										 "&priority=1" +
 										 "&callerId=" + itsCampaign + "-" + std::to_string(itsLeadId) + "-" + itsUseCloserStr +
 										 "&timeout=" + itos(itsTimeout) +
