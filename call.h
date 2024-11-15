@@ -150,6 +150,8 @@ public:
 				{
 					throw std::runtime_error("Placeholder _EXTEN_ not found in the trunk string. Trunk example: SIP/faketrunk/sip!_EXTEN_@127.0.0.1!5062");
 				}
+				this->SetCalled(true);
+				this->updateCallInDB();
 				/*
 				std::string postFields = "endpoint=" + itsTrunk +
 										 "&extension=" + dialPrefix + itsNumber +
@@ -220,9 +222,7 @@ public:
 			else
 			{
 				std::cout << mainHost << ": " + itsCampaign + " - " + itsNumber + " - " + std::to_string(itsLeadId) + " - " + itsUseCloserStr << std::endl;
-			}
-			this->SetCalled(true);
-			this->updateCallInDB();
+			}		
 
 			usleep(10000000);
 
