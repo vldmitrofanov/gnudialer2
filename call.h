@@ -174,7 +174,7 @@ public:
 					{"extension", dialPrefix + itsNumber},
 					{"context", (itsTransfer == "TRANSFER" ? "gdtransfer" : "gdstasis")},
 					{"priority", 1},
-					{"callerId", itsCampaign + "-" + std::to_string(itsLeadId)},
+					{"callerId", "~" + itsCampaign + "-" + std::to_string(itsLeadId) + "~"},
 					{"timeout", itsTimeout},
 					{"variables", variables}};
 
