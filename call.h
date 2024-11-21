@@ -168,6 +168,7 @@ public:
 					{"LEADID", std::to_string(itsLeadId)},
 					{"CAMPAIGN", itsCampaign},
 					{"DSPMODE", itsDSPMode},
+					{"METHOD", "auto"},
 					{"ISTRANSFER", itsTransfer}};
 				json jsonPayload = {
 					{"endpoint", itsTrunk},
